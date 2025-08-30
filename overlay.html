@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overlay Vóley – Formaciones</title>
+  <style>
+    /* Fondo transparente para OBS */
+    html, body { margin:0; height:100%; background:transparent; font-family:Inter,system-ui,Arial; color:#fff }
+    .panel {
+      position:absolute; inset:24px;
+      max-width:1100px; margin:auto; background:rgba(0,0,0,.55);
+      border:1px solid rgba(255,255,255,.1); border-radius:20px; backdrop-filter:blur(8px);
+      padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.35);
+    }
+    .hdr { display:flex; justify-content:space-between; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.15); padding-bottom:8px; margin-bottom:14px }
+    .hdr h2 { margin:0; font-size:22px }
+    .muted { color:#cfd8dc; font-size:12px }
+    .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px }
+    .team h3 { margin:0 0 8px 0; font-size:16px }
+    .row { display:grid; grid-template-columns:52px 1fr 40px; gap:8px; align-items:center;
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:8px 10px; margin-bottom:8px }
+    .num { text-align:center; font-weight:800; background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:6px 0 }
+    .name { font-weight:600 }
+    .pos { text-align:right; font-weight:700; color:#00d1b2 }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="hdr">
+      <h2>Formación inicial • <span id="setLbl">Set 1</span></h2>
+      <div class="muted" id="stamp">Cargando…</div>
+    </div>
+    <div class="cols">
+      <div class="team">
+        <h3 id="homeName">Local</h3>
+        <div id="homeList"></div>
+      </div>
+      <div class="team">
+        <h3 id="awayName">Visitante</h3>
+        <div id="awayList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // === TU HOJA (ya configurada) ===
+      const SHEET_ID   = "1dlu41kVti3-wnKV-dRxVJqqDK5mvYUBFA0W70Ao9OdQ"; // tu sheet
+      const SHEET_NAME = "Hoja1"; // cambia si tu pestaña se llama distinto
+      const GID        = "";      // alternativa: usa el gid (por ej. "0") y deja SHEET_NAME=""
+
+      // Parámetros desde la URL (ej.: ?set=1&refresh=10)
+      const params = new URLSearchParams(location.search);
+      const SET = Number(params.get("set") || 1);
+      const REFRESH_SEC = Number(params.get("refresh") || 0);
+
+      // Construimos la URL GViz
+      let baseURL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+      if (SHEET_NAME) baseURL += `&sheet=${encodeURIComponent(SHEET_NAME)}`;
+      else if (GID)   baseURL += `&gid=${encodeURIComponent(GID)}`;
+
+      // Elementos UI
+      const el = {
+        setLbl:  document.getElementById("setLbl"),
+        stamp:   document.getElementById("stamp"),
+        homeNm:  document.getElementById("homeName"),
+        awayNm:  document.getElementById("awayName"),
+        homeLst: document.getElementById("homeList"),
+        awayLst: document.getElementById("awayList"),
+      };
+      el.setLbl.textContent = `Set ${SET}`;
+
+      // Utilidad: convierte la tabla GViz en objetos
+      function rowsToObjects(table){
+        const cols = table.cols.map(c => (c.label || "").toLowerCase().trim());
+        return table.rows.map(r => {
+          const obj = {};
+          r.c.forEach((cell, i) => obj[cols[i]] = cell ? cell.v : null);
+          obj.set      = Number(obj.set);
+          obj.position = obj.position != null ? Number(obj.position) : null;
+          obj.side     = (obj.side || "").toLowerCase();
+          obj.number   = obj.number != null ? String(obj.number) : "";
+          return obj;
+        });
+      }
+
+      function renderTeam(rows, nameEl, listEl){
+        listEl.innerHTML = "";
+        if (!rows.length) { listEl.innerHTML = `<div class="row"><div class="name">Sin datos</div></div>`; return; }
+        nameEl.textContent = rows[0].team || nameEl.textContent;
+        rows.sort((a,b) => (a.position||99) - (b.position||99) || a.number.localeCompare(b.number));
+        for (const p of rows){
+          const row = document.createElement("div"); row.className = "row";
+          row.innerHTML = `<div class="num">${p.number||"—"}</div>
+                           <div class="name">${p.name||""}</div>
+                           <div class="pos">${p.position?("P"+p.position):""}</div>`;
+          listEl.appendChild(row);
+        }
+      }
+
+      // --- Carga vía JSONP para evitar CORS ---
+      // Definimos el callback que invoca GViz: google.visualization.Query.setResponse
+      window.google = window.google || {}; 
+      google.visualization = google.visualization || {}; 
+      google.visualization.Query = google.visualization.Query || {};
+
+      function injectScript(){
+        // cache-busting para forzar actualización
+        const s = document.createElement('script');
+        s.src = baseURL + `&t=${Date.now()}`;
+        s.async = true;
+        // guarda referencia para poder reemplazarlo
+        if (window.__gvizScript) document.head.removeChild(window.__gvizScript);
+        window.__gvizScript = s;
+        document.head.appendChild(s);
+      }
+
+      google.visualization.Query.setResponse = function(resp){
+        try {
+          el.stamp.textContent = "Procesando…";
+          if (resp.status && resp.status !== 'ok') throw new Error(resp.status);
+          const table = resp.table;
+          const all   = rowsToObjects(table).filter(r => r.set === SET);
+          const home  = all.filter(r => r.side === "home");
+          const away  = all.filter(r => r.side === "away");
+          renderTeam(home, el.homeNm, el.homeLst);
+          renderTeam(away, el.awayNm, el.awayLst);
+          el.stamp.textContent = "Actualizado " + new Date().toLocaleTimeString();
+        } catch (e) {
+          console.error(e);
+          el.stamp.textContent = "Error cargando datos";
+        }
+      };
+
+      function load(){
+        el.stamp.textContent = "Actualizando…";
+        injectScript();
+      }
+
+      load();
+      if (REFRESH_SEC > 0) setInterval(load, REFRESH_SEC * 1000);
+    })();
+  </script>
+</body>
+</html>
