@@ -79,4 +79,197 @@
     .row:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,.25); background: rgba(255,255,255,.08); }
 
     .num{ text-align:center; font-weight:900; font-size:20px; padding:10px 0; border-radius:12px;
-      background: linear
+      background: linear-gradient(135deg, color-mix(in srgb, var(--c1) 25%, #000), color-mix(in srgb, var(--c2) 25%, #000));
+      border:1px solid rgba(255,255,255,.12);
+      text-shadow: 0 1px 0 rgba(0,0,0,.35);
+    }
+    .name{ font-size:16px; font-weight:800; letter-spacing:.2px; }
+    .pos{ justify-self:end; font-weight:900; font-size:14px;
+      background: linear-gradient(90deg, var(--c1), var(--c2));
+      -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+    /* ====== FOOTER ====== */
+    .footer{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:10px 18px 16px; color:var(--muted); font-size:12px; border-top:1px solid var(--stroke); }
+    .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight:700; font-size:11px;
+      padding:2px 6px; border-radius:6px; border:1px solid var(--row-stroke); background: rgba(255,255,255,.06); }
+
+    /* Animaciones */
+    @keyframes fadeInUp{ from{opacity:0; transform: translateY(6px);} to{opacity:1; transform: translateY(0);} }
+    .row{ animation: fadeInUp .28s ease both; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card-outer">
+      <div class="glow"></div>
+      <div class="card">
+        <div class="header">
+          <div class="title">Formación inicial <span class="set-pill" id="setPill">Set 1</span></div>
+          <div class="sub" id="stamp">Cargando…</div>
+        </div>
+        <div class="cols">
+          <div class="team">
+            <h3><span id="homeName">Local</span> <span class="badge">HOME</span></h3>
+            <div class="list" id="homeList"></div>
+          </div>
+          <div class="team">
+            <h3><span id="awayName">Visitante</span> <span class="badge">AWAY</span></h3>
+            <div class="list" id="awayList"></div>
+          </div>
+        </div>
+        <div class="footer">
+          <div>Atajos: <span class="kbd">1–5</span> cambia de set · <span class="kbd">R</span> recarga · <span class="kbd">T</span> tema claro/oscuro</div>
+          <div id="meta"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ====== CONFIG (tu hoja) ======
+      const SHEET_ID   = "1dlu41kVti3-wnKV-dRxVJqqDK5mvYUBFA0W70Ao9OdQ"; // tu sheet id
+      const SHEET_NAME = "Hoja1";  // cambia si tu pestaña se llama distinto; o deja "" y usa GID
+      const GID        = "";       // por ejemplo "0"
+
+      // ====== Parámetros URL ======
+      const params = new URLSearchParams(location.search);
+      let currentSet   = Number(params.get('set') || 1);
+      const REFRESH_SEC= Number(params.get('refresh') || 0);
+      const THEME      = (params.get('theme') || 'dark').toLowerCase(); // 'dark' | 'light'
+      const C1         = (params.get('c1') || '').replace('#','');
+      const C2         = (params.get('c2') || '').replace('#','');
+      const ALPHA      = params.get('alpha'); // 0..1
+      const BLUR       = params.get('blur');  // px
+      const RADIUS     = params.get('radius'); // px
+
+      // aplica personalización de tema/colores
+      const root = document.documentElement;
+      if (ALPHA) root.style.setProperty('--panel-alpha', Math.max(0, Math.min(1, Number(ALPHA))));
+      if (BLUR)  root.style.setProperty('--blur', `${Number(BLUR)}px`);
+      if (RADIUS)root.style.setProperty('--radius', `${Number(RADIUS)}px`);
+      if (C1)    root.style.setProperty('--c1', `#${C1}`);
+      if (C2)    root.style.setProperty('--c2', `#${C2}`);
+      if (THEME === 'light'){
+        root.style.setProperty('--text',  '#0b0b0b');
+        root.style.setProperty('--muted', '#445');
+        root.style.setProperty('--row',   'rgba(0,0,0,.04)');
+        root.style.setProperty('--row-stroke', 'rgba(0,0,0,.10)');
+        root.style.setProperty('--stroke','rgba(0,0,0,.14)');
+      }
+
+      // ====== Construir URL GViz (JSONP) ======
+      let baseURL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+      if (SHEET_NAME) baseURL += `&sheet=${encodeURIComponent(SHEET_NAME)}`;
+      else if (GID)   baseURL += `&gid=${encodeURIComponent(GID)}`;
+
+      // ====== Referencias DOM ======
+      const el = {
+        setPill: document.getElementById('setPill'),
+        stamp:   document.getElementById('stamp'),
+        meta:    document.getElementById('meta'),
+        homeNm:  document.getElementById('homeName'),
+        awayNm:  document.getElementById('awayName'),
+        homeLst: document.getElementById('homeList'),
+        awayLst: document.getElementById('awayList'),
+      };
+      const setLabel = (n) => { el.setPill.textContent = `Set ${n}`; };
+      setLabel(currentSet);
+
+      // ====== Utilidades ======
+      function rowsToObjects(table){
+        const cols = table.cols.map(c => (c.label || '').toLowerCase().trim());
+        return table.rows.map(r => {
+          const obj = {};
+          r.c.forEach((cell, i) => obj[cols[i]] = cell ? cell.v : null);
+          obj.set      = Number(obj.set);
+          obj.position = obj.position != null ? Number(obj.position) : null;
+          obj.side     = (obj.side || '').toLowerCase();
+          obj.number   = obj.number != null ? String(obj.number) : '';
+          return obj;
+        });
+      }
+      function renderTeam(rows, nameEl, listEl){
+        listEl.innerHTML = '';
+        if (!rows.length) { listEl.innerHTML = `<div class="row"><div class="name">Sin datos</div></div>`; return; }
+        nameEl.textContent = rows[0].team || nameEl.textContent;
+        rows.sort((a,b) => (a.position||99) - (b.position||99) || a.number.localeCompare(b.number));
+        rows.forEach((p, i) => {
+          const row = document.createElement('div'); row.className = 'row'; row.style.animationDelay = `${i*30}ms`;
+          row.innerHTML = `<div class="num">${p.number||'—'}</div>
+                           <div class="name">${p.name||''}</div>
+                           <div class="pos">${p.position?("P"+p.position):''}</div>`;
+          listEl.appendChild(row);
+        });
+      }
+      function renderAll(objects){
+        const setRows = objects.filter(o => o.set === currentSet);
+        const home = setRows.filter(o => o.side === 'home');
+        const away = setRows.filter(o => o.side === 'away');
+        renderTeam(home, el.homeNm, el.homeLst);
+        renderTeam(away, el.awayNm, el.awayLst);
+        el.meta.textContent = `${home.length} + ${away.length} jugadores (set ${currentSet})`;
+      }
+
+      // ====== JSONP loader ======
+      window.google = window.google || {}; 
+      google.visualization = google.visualization || {}; 
+      google.visualization.Query = google.visualization.Query || {};
+
+      let lastObjects = [];
+      function injectScript(){
+        const s = document.createElement('script');
+        s.src = baseURL + `&t=${Date.now()}`; // cache-busting
+        s.async = true;
+        if (window.__gvizScript) document.head.removeChild(window.__gvizScript);
+        window.__gvizScript = s;
+        document.head.appendChild(s);
+      }
+      google.visualization.Query.setResponse = function(resp){
+        try{
+          el.stamp.textContent = 'Procesando…';
+          if (resp.status && resp.status !== 'ok') throw new Error(resp.status);
+          lastObjects = rowsToObjects(resp.table);
+          renderAll(lastObjects);
+          el.stamp.textContent = 'Actualizado ' + new Date().toLocaleTimeString();
+        }catch(e){ console.error(e); el.stamp.textContent = 'Error cargando datos'; }
+      };
+
+      function load(){ el.stamp.textContent = 'Actualizando…'; injectScript(); }
+
+      // ====== Interacciones ======
+      window.addEventListener('keydown', (e) => {
+        if (e.key >= '1' && e.key <= '5'){
+          currentSet = Number(e.key);
+          setLabel(currentSet);
+          if (lastObjects.length) renderAll(lastObjects); else load();
+        }
+        if (e.key.toLowerCase() === 'r') load();
+        if (e.key.toLowerCase() === 't'){
+          const isLight = getComputedStyle(root).getPropertyValue('--row').includes('0,0,0');
+          if (isLight){
+            // volver a dark
+            root.style.removeProperty('--text');
+            root.style.removeProperty('--muted');
+            root.style.removeProperty('--row');
+            root.style.removeProperty('--row-stroke');
+            root.style.removeProperty('--stroke');
+          }else{
+            // activar light
+            root.style.setProperty('--text',  '#0b0b0b');
+            root.style.setProperty('--muted', '#445');
+            root.style.setProperty('--row',   'rgba(0,0,0,.04)');
+            root.style.setProperty('--row-stroke', 'rgba(0,0,0,.10)');
+            root.style.setProperty('--stroke','rgba(0,0,0,.14)');
+          }
+        }
+      });
+
+      // init
+      load();
+      if (REFRESH_SEC > 0) setInterval(load, REFRESH_SEC * 1000);
+    })();
+  </script>
+</body>
+</html>
