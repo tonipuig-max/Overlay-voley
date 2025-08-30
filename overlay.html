@@ -5,142 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Overlay Vóley – Formaciones</title>
   <style>
-    /* Fondo transparente para OBS */
-    html, body { margin:0; height:100%; background:transparent; font-family:Inter,system-ui,Arial; color:#fff }
-    .panel {
-      position:absolute; inset:24px;
-      max-width:1100px; margin:auto; background:rgba(0,0,0,.55);
-      border:1px solid rgba(255,255,255,.1); border-radius:20px; backdrop-filter:blur(8px);
-      padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.35);
+    /* ====== THEME VARS (personalizables por URL) ====== */
+    :root{
+      /* opacidad del panel (0–1) */
+      --panel-alpha: .32;
+      /* colores del acento/gradiente */
+      --c1: #24c6dc; /* por defecto turquesa → violeta */
+      --c2: #514a9d;
+      --text: #ffffff;
+      --muted: #cfd8dc;
+      --radius: 22px;
+      --blur: 10px;          /* blur del cristal */
+      --stroke: rgba(255,255,255,.12);
+      --row: rgba(255,255,255,.06);
+      --row-stroke: rgba(255,255,255,.10);
+      --shadow: 0 18px 55px rgba(0,0,0,.35);
     }
-    .hdr { display:flex; justify-content:space-between; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.15); padding-bottom:8px; margin-bottom:14px }
-    .hdr h2 { margin:0; font-size:22px }
-    .muted { color:#cfd8dc; font-size:12px }
-    .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px }
-    .team h3 { margin:0 0 8px 0; font-size:16px }
-    .row { display:grid; grid-template-columns:52px 1fr 40px; gap:8px; align-items:center;
-      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:8px 10px; margin-bottom:8px }
-    .num { text-align:center; font-weight:800; background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:6px 0 }
-    .name { font-weight:600 }
-    .pos { text-align:right; font-weight:700; color:#00d1b2 }
-  </style>
-</head>
-<body>
-  <div class="panel">
-    <div class="hdr">
-      <h2>Formación inicial • <span id="setLbl">Set 1</span></h2>
-      <div class="muted" id="stamp">Cargando…</div>
-    </div>
-    <div class="cols">
-      <div class="team">
-        <h3 id="homeName">Local</h3>
-        <div id="homeList"></div>
-      </div>
-      <div class="team">
-        <h3 id="awayName">Visitante</h3>
-        <div id="awayList"></div>
-      </div>
-    </div>
-  </div>
 
-  <script>
-    (() => {
-      // === TU HOJA (ya configurada) ===
-      const SHEET_ID   = "1dlu41kVti3-wnKV-dRxVJqqDK5mvYUBFA0W70Ao9OdQ"; // tu sheet
-      const SHEET_NAME = "Hoja1"; // cambia si tu pestaña se llama distinto
-      const GID        = "";      // alternativa: usa el gid (por ej. "0") y deja SHEET_NAME=""
+    /* ====== RESET / BASE ====== */
+    html, body { margin:0; height:100%; background:transparent; color:var(--text); }
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
 
-      // Parámetros desde la URL (ej.: ?set=1&refresh=10)
-      const params = new URLSearchParams(location.search);
-      const SET = Number(params.get("set") || 1);
-      const REFRESH_SEC = Number(params.get("refresh") || 0);
+    /* ====== LAYOUT ====== */
+    .wrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; }
 
-      // Construimos la URL GViz
-      let baseURL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
-      if (SHEET_NAME) baseURL += `&sheet=${encodeURIComponent(SHEET_NAME)}`;
-      else if (GID)   baseURL += `&gid=${encodeURIComponent(GID)}`;
+    /* Tarjeta con borde-neo y glassmorphism */
+    .card-outer{
+      position:relative; width:min(1180px,94vw);
+      border-radius: var(--radius);
+      padding: 1px; /* para el borde degradado */
+      background: linear-gradient(135deg, var(--c1), var(--c2));
+      box-shadow: var(--shadow);
+    }
+    .card{
+      position:relative; border-radius: inherit;
+      background: rgba(0,0,0, var(--panel-alpha));
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
+      border: 1px solid var(--stroke);
+      overflow:hidden;
+    }
 
-      // Elementos UI
-      const el = {
-        setLbl:  document.getElementById("setLbl"),
-        stamp:   document.getElementById("stamp"),
-        homeNm:  document.getElementById("homeName"),
-        awayNm:  document.getElementById("awayName"),
-        homeLst: document.getElementById("homeList"),
-        awayLst: document.getElementById("awayList"),
-      };
-      el.setLbl.textContent = `Set ${SET}`;
+    /* brillo suave detrás */
+    .glow{ position:absolute; inset:-40px; filter: blur(50px); opacity:.35; z-index:-1;
+      background: radial-gradient(600px 280px at 20% 10%, color-mix(in srgb, var(--c1) 35%, transparent), transparent),
+                  radial-gradient(500px 260px at 80% 90%, color-mix(in srgb, var(--c2) 35%, transparent), transparent);
+    }
 
-      // Utilidad: convierte la tabla GViz en objetos
-      function rowsToObjects(table){
-        const cols = table.cols.map(c => (c.label || "").toLowerCase().trim());
-        return table.rows.map(r => {
-          const obj = {};
-          r.c.forEach((cell, i) => obj[cols[i]] = cell ? cell.v : null);
-          obj.set      = Number(obj.set);
-          obj.position = obj.position != null ? Number(obj.position) : null;
-          obj.side     = (obj.side || "").toLowerCase();
-          obj.number   = obj.number != null ? String(obj.number) : "";
-          return obj;
-        });
-      }
+    /* ====== HEADER ====== */
+    .header{ display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+      padding:18px 20px; border-bottom:1px solid var(--stroke);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), transparent);
+    }
+    .title{ font-size:26px; font-weight:800; letter-spacing:.2px; }
+    .set-pill{ font-size:12px; padding:3px 10px; border-radius:999px;
+      background: linear-gradient(90deg, var(--c1), var(--c2));
+      color:#0b0b0b; font-weight:800; margin-left:10px; }
+    .sub{ color:var(--muted); font-size:12px; }
 
-      function renderTeam(rows, nameEl, listEl){
-        listEl.innerHTML = "";
-        if (!rows.length) { listEl.innerHTML = `<div class="row"><div class="name">Sin datos</div></div>`; return; }
-        nameEl.textContent = rows[0].team || nameEl.textContent;
-        rows.sort((a,b) => (a.position||99) - (b.position||99) || a.number.localeCompare(b.number));
-        for (const p of rows){
-          const row = document.createElement("div"); row.className = "row";
-          row.innerHTML = `<div class="num">${p.number||"—"}</div>
-                           <div class="name">${p.name||""}</div>
-                           <div class="pos">${p.position?("P"+p.position):""}</div>`;
-          listEl.appendChild(row);
-        }
-      }
+    /* ====== COLUMNS ====== */
+    .cols{ display:grid; grid-template-columns: 1fr 1fr; gap:18px; padding:18px 18px 20px; }
+    .team h3{ margin:0 0 10px 0; font-size:18px; font-weight:900; letter-spacing:.2px;
+      display:flex; align-items:center; gap:10px; }
+    .team h3 .badge{ font-size:11px; padding:3px 8px; border-radius:999px;
+      border: 1px solid var(--row-stroke);
+      background: rgba(255,255,255,.08); color:var(--muted); font-weight:700; }
 
-      // --- Carga vía JSONP para evitar CORS ---
-      // Definimos el callback que invoca GViz: google.visualization.Query.setResponse
-      window.google = window.google || {}; 
-      google.visualization = google.visualization || {}; 
-      google.visualization.Query = google.visualization.Query || {};
+    /* ====== PLAYER ROW ====== */
+    .list{ display:grid; gap:10px; }
+    .row{ display:grid; grid-template-columns: 64px 1fr 58px; align-items:center; gap:10px; padding:10px 12px;
+      background: var(--row); border:1px solid var(--row-stroke); border-radius: 14px;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+    .row:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,.25); background: rgba(255,255,255,.08); }
 
-      function injectScript(){
-        // cache-busting para forzar actualización
-        const s = document.createElement('script');
-        s.src = baseURL + `&t=${Date.now()}`;
-        s.async = true;
-        // guarda referencia para poder reemplazarlo
-        if (window.__gvizScript) document.head.removeChild(window.__gvizScript);
-        window.__gvizScript = s;
-        document.head.appendChild(s);
-      }
-
-      google.visualization.Query.setResponse = function(resp){
-        try {
-          el.stamp.textContent = "Procesando…";
-          if (resp.status && resp.status !== 'ok') throw new Error(resp.status);
-          const table = resp.table;
-          const all   = rowsToObjects(table).filter(r => r.set === SET);
-          const home  = all.filter(r => r.side === "home");
-          const away  = all.filter(r => r.side === "away");
-          renderTeam(home, el.homeNm, el.homeLst);
-          renderTeam(away, el.awayNm, el.awayLst);
-          el.stamp.textContent = "Actualizado " + new Date().toLocaleTimeString();
-        } catch (e) {
-          console.error(e);
-          el.stamp.textContent = "Error cargando datos";
-        }
-      };
-
-      function load(){
-        el.stamp.textContent = "Actualizando…";
-        injectScript();
-      }
-
-      load();
-      if (REFRESH_SEC > 0) setInterval(load, REFRESH_SEC * 1000);
-    })();
-  </script>
-</body>
-</html>
+    .num{ text-align:center; font-weight:900; font-size:20px; padding:10px 0; border-radius:12px;
+      background: linear
