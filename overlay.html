@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pista 3D – OBS (anim yaw 44→89, postes más gruesos)</title>
+<title>Pista 3D – OBS (nombres tras animación, arriba izq/der)</title>
 <style>
   :root{
     --court-top:#0E7490; --court-mid:#2DD4BF; --court-bot:#FDE68A;
@@ -30,30 +30,37 @@
 
   // Recuadro (container)
   const FRAME_PAD       = Number(p.get('framePad')||24);
-  const FRAME_PAD_SHORT = Number(p.get('framePadShort')||80);
+  const FRAME_PAD_SHORT = Number(p.get('framePadShort')||100); // ← como pediste
   const FRAME_RADIUS    = Number(p.get('frameRadius')||14);
-  const FRAME_FILL      = p.get('frameFill')   || 'rgba(20,22,26,0.90)';
+  const FRAME_FILL      = p.get('frameFill')   || 'rgba(20,22,26,0.80)';
   const FRAME_STROKE    = p.get('frameStroke') || 'rgba(255,255,255,0.12)';
 
+  // Equipos (HOME=izquierda, AWAY=derecha)
+  const TEAM_HOME_URL = p.get('teamHome') || p.get('home') || '';
+  const TEAM_AWAY_URL = p.get('teamAway') || p.get('away') || '';
+  const SWAP_SIDES    = (p.get('swapSides')==='1'); // invierte izq/der si tu feed lo requiere
+  const TEAM_FS       = Number(p.get('teamFS')||22); // px
+  const TEAM_COLOR    = p.get('teamColor') || '#FFFFFF';
+  const TEAM_MARGIN   = Number(p.get('teamPad')||16); // margen interno al recuadro
+
   // HUDs
-  let HUD_ON   = (p.get('hud')||'0')!=='0';   // HUD paleta (H)
-  let CAMHUD_ON= (p.get('camhud')??'1')==='1';// HUD cámara (C)
+  let HUD_ON   = (p.get('hud')||'0')!=='0';
+  let CAMHUD_ON= (p.get('camhud')??'1')==='1';
 
   // Paletas
   const GEN_COUNT  = Math.max(8, Number(p.get('palettes')||64));
   const START_PAL  = Number(p.get('pal')||0); // 1-index
-  const defaultStart = 52; // arranque en paleta #52
+  const defaultStart = 52;
 
   // ===== Cámara =====
-  // Arrancamos YA con yaw=44 para que el primer frame ya sea el inicio deseado.
   let YAW_DEG=44, ELEV_DEG=30, DIST=14, FOV=55;
   const FIT=true, PADPX=20;
 
   // ===== Geometría =====
   const COURT_W=18, COURT_H=9, NET_H=2.43;
 
-  // Postes: ligeramente más gruesos (puedes ajustar con ?poleRadius=0.1, etc.)
-  const POLE_RADIUS = Number(p.get('poleRadius') || 0.10); // antes ~0.07
+  // Postes
+  const POLE_RADIUS = Number(p.get('poleRadius') || 0.10);
 
   // ===== Canvas =====
   const canvas = document.getElementById("court");
@@ -136,9 +143,35 @@
     return table.rows.map(r=>{const o={}; r.c.forEach((cell,i)=>o[cols[i]]=cell?cell.v:null);
       o.set=Number(o.set); o.side=(o.side||"").toLowerCase(); o.zone=Number(o.zone); o.team=o.team||""; o.count=o.count!=null?Number(o.count):1; return o;});
   }
+
+  // Nombres detectados desde Sheet (si no vienen por URL)
+  let TEAM_HOME = TEAM_HOME_URL; // izquierda
+  let TEAM_AWAY = TEAM_AWAY_URL; // derecha
+  let TEAMS_READY = (!!TEAM_HOME && !!TEAM_AWAY);
+
   google.visualization.Query.setResponse=function(resp){
-    try{ if(resp.status && resp.status!=="ok") throw new Error(resp.status);
-      const all=rowsToObjects(resp.table); const agg=aggregateForSet(all,currentSet); render(agg);
+    try{
+      if(resp.status && resp.status!=="ok") throw new Error(resp.status);
+      const all=rowsToObjects(resp.table);
+
+      // Si faltan, detecta por lado (home/away) del set activo
+      if (!TEAMS_READY){
+        const setRows=all.filter(r=>r.set===currentSet && r.team && r.team.trim());
+        const homeCounts={}, awayCounts={};
+        for (const r of setRows){
+          const k=r.team.trim();
+          if (r.side==='home') homeCounts[k]=(homeCounts[k]||0)+(isFinite(r.count)?r.count:1);
+          else if (r.side==='away') awayCounts[k]=(awayCounts[k]||0)+(isFinite(r.count)?r.count:1);
+        }
+        const topK=(obj)=>Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]?.[0];
+        TEAM_HOME = TEAM_HOME || topK(homeCounts) || "HOME";
+        TEAM_AWAY = TEAM_AWAY || topK(awayCounts) || "AWAY";
+        TEAMS_READY = true;
+        if (SWAP_SIDES) [TEAM_HOME, TEAM_AWAY] = [TEAM_AWAY, TEAM_HOME];
+      }
+
+      const agg=aggregateForSet(all,currentSet);
+      render(agg);
     }catch(e){ console.error("Error GViz:", e); }
   };
   function load(){ injectScript(); }
@@ -193,16 +226,19 @@
     ctx.arcTo(x,   y,   x+w, y,   rr);
     ctx.closePath();
   }
-  function drawContainerFrame(poly, dpr){
+  function computeFrameFromPoly(poly, dpr){
     let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
     for(const p of poly){ if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y; }
     const padX = FRAME_PAD * dpr;
-    const padY = (FRAME_PAD + FRAME_PAD_SHORT) * dpr; // más altura lados cortos
+    const padY = (FRAME_PAD + FRAME_PAD_SHORT) * dpr;
     const x = minX - padX;
     const y = minY - padY;
     const w = (maxX - minX) + padX*2;
     const h = (maxY - minY) + padY*2;
-
+    return {x,y,w,h};
+  }
+  function drawContainerFrame(poly, dpr){
+    const {x,y,w,h} = computeFrameFromPoly(poly, dpr);
     ctx.save();
     roundedRectPath(x,y,w,h, FRAME_RADIUS * dpr);
     ctx.fillStyle   = FRAME_FILL;
@@ -211,6 +247,7 @@
     ctx.strokeStyle = FRAME_STROKE;
     ctx.stroke();
     ctx.restore();
+    return {x,y,w,h};
   }
 
   // ===== Pista / prisma / líneas / red =====
@@ -302,6 +339,31 @@
     }
   }
 
+  // ===== Etiquetas de equipos (solo cuando termina la animación) =====
+  let introFinished = false;
+// Etiquetas de equipos: centradas en cada mitad, en la parte superior del recuadro
+function drawTeamLabelsLR(frame, dpr){
+  if (!introFinished || !TEAMS_READY) return; // no mostrar hasta que acabe la animación
+
+  const margin = TEAM_MARGIN * dpr;
+  const y = frame.y + margin;                // cerca del borde superior del recuadro
+  const cxHome = frame.x + frame.w * 0.25;   // centro de la mitad izquierda
+  const cxAway = frame.x + frame.w * 0.75;   // centro de la mitad derecha
+
+  ctx.save();
+  ctx.font = `${Math.round(TEAM_FS*dpr)}px Inter,system-ui,Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.shadowColor = 'rgba(0,0,0,.55)';
+  ctx.shadowBlur = 6*dpr;
+  ctx.fillStyle = TEAM_COLOR;
+
+  if (TEAM_HOME) ctx.fillText(TEAM_HOME, cxHome, y);
+  if (TEAM_AWAY) ctx.fillText(TEAM_AWAY, cxAway, y);
+
+  ctx.restore();
+}
+
   // ===== HUDs =====
   function drawPaletteHUD(dpr){
     if (!HUD_ON) return;
@@ -344,14 +406,15 @@
     const eye=eyeFromParams(), cam=lookAt(eye,{x:0,y:0,z:0}); const f0=(h/2)/Math.tan((FOV*Math.PI/180)/2), pad=PADPX*dpr;
     const f=FIT?computeFitFocal(cam,w,h,f0,pad):f0;
 
-    const rectProj=[{x:-COURT_W/2,y:COURT_H/2,z:0},{x: COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y:-COURT_H/2,z:0},{x:-COURT_W/2,y:-COURT_H/2,z:0}].map(p=>projectCam(worldToCam(p,cam),f));
+    const rectProj=[{x:-COURT_W/2,y:COURT_H/2,z:0},{x: COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y:-COURT_H/2,z:0},{x:-COURT_W/2,y:-COURT_H/2,z:0}]
+      .map(p=>projectCam(worldToCam(p,cam),f));
     let cx=0,cy=0; rectProj.forEach(q=>{cx+=q.x;cy+=q.y;}); cx/=4; cy/=4; const sx=w/2-cx, sy=h/2+cy;
 
     // Polígono del top de la pista
     const poly=rectProj.map(q=>({x:sx+q.x,y:sy-q.y}));
 
     // 1) Recuadro
-    drawContainerFrame(poly, dpr);
+    const frame = drawContainerFrame(poly, dpr);
 
     // 2) Prisma + cara superior
     drawCourtPrism(cam,f,sx,sy,dpr);
@@ -368,7 +431,10 @@
     // 4) Heatmap
     drawHeatmap(countsHalf,cam,f,sx,sy,dpr);
 
-    // 5) HUDs
+    // 5) Nombres de equipos (solo cuando termine la animación)
+    drawTeamLabelsLR(frame, dpr);
+
+    // 6) HUDs
     drawPaletteHUD(dpr);
     drawCameraHUD(dpr);
   }
@@ -378,11 +444,10 @@
   // ===== Resize =====
   const ro=new ResizeObserver(()=>rerender()); ro.observe(document.querySelector('.stage'));
 
-  // ===== Animación inicial (cambia: yaw 44 → 89) =====
-  let __introDone=false;
+  // ===== Animación inicial (yaw 44 → 89) =====
   function animateIntroCamera(){
-    if (__introDone) return; __introDone=true;
-    const startYaw=44, endYaw=89;         // ← lo pedido
+    introFinished = false; // ← importantísimo
+    const startYaw=44, endYaw=89;
     const startElev=30, endElev=30;
     const startDist=14, endDist=14;
     const duration=2500;
@@ -395,6 +460,7 @@
       DIST=startDist+(endDist-startDist)*e;
       rerender();
       if (t<1) requestAnimationFrame(step);
+      else { introFinished = true; rerender(); } // ← ahora sí mostramos nombres
     }
     requestAnimationFrame(step);
   }
@@ -412,7 +478,7 @@
     if (k==='m'||k==='M'){FOV=clamp(FOV-1,30,90); rerender();}
     if (k==='n'||k==='N'){FOV=clamp(FOV+1,30,90); rerender();}
     // Paletas
-    if (k==='r'||k==='R'||k==='e'||k==='E'){paletteIdx=(paletteIdx+1)%PALETTES.length; applyPalette(PALETTES[paletteIdx]); rerender();}
+    if (k==='r'||k==='R'||k==='E'||k==='e'){paletteIdx=(paletteIdx+1)%PALETTES.length; applyPalette(PALETTES[paletteIdx]); rerender();}
     if (k==='y'||k==='Y'){paletteIdx=(paletteIdx-1+PALETTES.length)%PALETTES.length; applyPalette(PALETTES[paletteIdx]); rerender();}
     if (k==='p'||k==='P'){paletteIdx=Math.floor(Math.random()*PALETTES.length); applyPalette(PALETTES[paletteIdx]); rerender();}
     // HUDs
@@ -428,6 +494,7 @@
 </script>
 </body>
 </html>
+
 
 
 
