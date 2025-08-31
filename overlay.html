@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pista 3D – OBS (paleta #52, recuadro, HUD cámara)</title>
+<title>Pista 3D – OBS (anim yaw 44→89, postes más gruesos)</title>
 <style>
   :root{
     --court-top:#0E7490; --court-mid:#2DD4BF; --court-bot:#FDE68A;
@@ -28,27 +28,32 @@
   let currentSet   = Number(p.get('set')||1);
   const REFRESH_SEC= Number(p.get('refresh')||0);
 
-  // Recuadro (container) – parámetros
-  const FRAME_PAD       = Number(p.get('framePad')||24);        // padding base (ambos ejes)
-  const FRAME_PAD_SHORT = Number(p.get('framePadShort')||36);   // extra vertical (arriba/abajo)
-  const FRAME_RADIUS    = Number(p.get('frameRadius')||14);     // radio esquinas
-  const FRAME_FILL      = p.get('frameFill')   || 'rgba(20,22,26,0.30)'; // ↑ ajusta alfa para más solidez
+  // Recuadro (container)
+  const FRAME_PAD       = Number(p.get('framePad')||24);
+  const FRAME_PAD_SHORT = Number(p.get('framePadShort')||36);
+  const FRAME_RADIUS    = Number(p.get('frameRadius')||14);
+  const FRAME_FILL      = p.get('frameFill')   || 'rgba(20,22,26,0.30)';
   const FRAME_STROKE    = p.get('frameStroke') || 'rgba(255,255,255,0.12)';
 
   // HUDs
-  let HUD_ON   = (p.get('hud')||'0')!=='0'; // HUD de paleta oculto por defecto (pulsa H o ?hud=1)
-  let CAMHUD_ON= (p.get('camhud')??'1')==='1'; // HUD de cámara visible por defecto (?camhud=0 para ocultar)
+  let HUD_ON   = (p.get('hud')||'0')!=='0';   // HUD paleta (H)
+  let CAMHUD_ON= (p.get('camhud')??'1')==='1';// HUD cámara (C)
 
-  // Paletas generadas
+  // Paletas
   const GEN_COUNT  = Math.max(8, Number(p.get('palettes')||64));
-  const START_PAL  = Number(p.get('pal')||0);   // 1-index si lo pasas; si no, arranca en 52
+  const START_PAL  = Number(p.get('pal')||0); // 1-index
+  const defaultStart = 52; // arranque en paleta #52
 
   // ===== Cámara =====
-  let YAW_DEG=90, ELEV_DEG=30, DIST=14, FOV=55; // animación 90→80
+  // Arrancamos YA con yaw=44 para que el primer frame ya sea el inicio deseado.
+  let YAW_DEG=44, ELEV_DEG=30, DIST=14, FOV=55;
   const FIT=true, PADPX=20;
 
   // ===== Geometría =====
   const COURT_W=18, COURT_H=9, NET_H=2.43;
+
+  // Postes: ligeramente más gruesos (puedes ajustar con ?poleRadius=0.1, etc.)
+  const POLE_RADIUS = Number(p.get('poleRadius') || 0.10); // antes ~0.07
 
   // ===== Canvas =====
   const canvas = document.getElementById("court");
@@ -64,9 +69,8 @@
     return `#${R}${G}${B}`.toUpperCase();
   }
   function hexToRgb(h){const x=h.startsWith('#')?h.slice(1):h, v=parseInt(x,16); if(x.length!==6||Number.isNaN(v)) return {r:0,g:0,b:0}; return {r:(v>>16)&255,g:(v>>8)&255,b:v&255};}
-  function rgbaFromHex(hex, a=1){const {r,g,b}=hexToRgb(hex); return `rgba(${r},${g},${b},${a})`;}
   function darkenHex(hex, amt=0.25, alpha=1){const {r,g,b}=hexToRgb(hex); const k=Math.max(0,Math.min(1,1-amt)); return `rgba(${Math.round(r*k)},${Math.round(g*k)},${Math.round(b*k)},${alpha})`;}
-  function mix2(h1,h2,t,a=1){const c1=hexToRgb(h1),c2=hexToRgb(h2);const r=Math.round(lerp(c1.r,c2.r,t)),g=Math.round(lerp(c1.g,c2.g,t)),b=Math.round(lerp(c1.b,c2.b,t));return `rgba(${r},${g},${b},${a})`;}
+  function mix2(h1,h2,t,a=1){const a1=hexToRgb(h1),a2=hexToRgb(h2);const r=Math.round(lerp(a1.r,a2.r,t)),g=Math.round(lerp(a1.g,a2.g,t)),b=Math.round(lerp(a1.b,a2.b,t));return `rgba(${r},${g},${b},${a})`;}
   function mixHeat(low,mid,high,t,a=0.85){if(t<=0)return mix2(low,low,0,a); if(t>=1)return mix2(high,high,0,a); return t<.5?mix2(low,mid,t/.5,a):mix2(mid,high,(t-.5)/.5,a);}
   const lerpPoint=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
   function hexBlend(h1,h2,t){const a=hexToRgb(h1), b=hexToRgb(h2);
@@ -74,7 +78,7 @@
     return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${bb.toString(16).padStart(2,'0')}`.toUpperCase();
   }
 
-  // ===== Paletas (curadas + generadas HSL) =====
+  // ===== Paletas =====
   const CURATED = [
     {name:"Teal Sand", court:{top:"#0E7490",mid:"#2DD4BF",bot:"#FDE68A"}, heat:{low:"#22C55E",mid:"#F59E0B",high:"#DC2626"}},
     {name:"Slate Copper", court:{top:"#334155",mid:"#64748B",bot:"#EED9C4"}, heat:{low:"#06B6D4",mid:"#F59E0B",high:"#B91C1C"}},
@@ -106,13 +110,8 @@
     return res;
   }
   const PALETTES=[...CURATED, ...generateManyPalettes(GEN_COUNT)];
-  let paletteIdx = 0;
-
-  // Arranque SIEMPRE en paleta #52 (1-index) salvo que ?pal= indique otra
-  const defaultStart = 52;
-  paletteIdx = (START_PAL>0 && START_PAL<=PALETTES.length) ? (START_PAL-1) :
-               (defaultStart<=PALETTES.length ? defaultStart-1 : 0);
-
+  let paletteIdx = (START_PAL>0 && START_PAL<=PALETTES.length) ? (START_PAL-1) :
+                   (defaultStart<=PALETTES.length ? defaultStart-1 : 0);
   function applyPalette(pal){
     const r=document.documentElement.style;
     r.setProperty('--court-top', pal.court.top);
@@ -129,7 +128,7 @@
   if (SHEET_NAME) baseURL+=`&sheet=${encodeURIComponent(SHEET_NAME)}`;
   else if (GID)   baseURL+=`&gid=${encodeURIComponent(GID)}`;
   window.google=window.google||{}; google.visualization=google.visualization||{};
-  google.visualization.Query=google.visualization.Query||{};
+  google.visualization.Query=google.visualization||{};
   function injectScript(){ const s=document.createElement("script"); s.src=baseURL+`&t=${Date.now()}`; s.async=true;
     if (window.__gvizScript) document.head.removeChild(window.__gvizScript); window.__gvizScript=s; document.head.appendChild(s); }
   function rowsToObjects(table){
@@ -158,13 +157,17 @@
   function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
   function wrapDeg(d){d%=360;if(d<0)d+=360;return d}
   const deg2rad=d=>d*Math.PI/180;
-  function eyeFromParams(){ const yaw=deg2rad(YAW_DEG), elev=deg2rad(ELEV_DEG), r=Math.max(0.1,DIST);
-    const cosE=Math.cos(elev), sinE=Math.cos(Math.PI/2 - elev) ? Math.sin(elev) : Math.sin(elev); // safe
-    return {x:r*Math.cos(elev)*Math.cos(yaw), y:r*Math.cos(elev)*Math.sin(yaw), z:r*Math.sin(elev)};
+  function eyeFromParams(){
+    const yaw=deg2rad(YAW_DEG), elev=deg2rad(ELEV_DEG), r=Math.max(0.1,DIST);
+    const cosE=Math.cos(elev), sinE=Math.sin(elev);
+    return {x:r*cosE*Math.cos(yaw), y:r*cosE*Math.sin(yaw), z:r*sinE};
   }
   function lookAt(eye,target={x:0,y:0,z:0},up={x:0,y:0,z:1}){
-    const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}); const cross=(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}); const norm=v=>{const L=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/L,y:v.y/L,z:v.z/L}};
-    const zc=norm(sub(target,eye)), xc=norm(cross(zc,up)), yc=cross(xc,zc); return {eye, xc, yc, zc};
+    const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z});
+    const cross=(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x});
+    const norm=v=>{const L=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/L,y:v.y/L,z:v.z/L}};
+    const zc=norm(sub(target,eye)), xc=norm(cross(zc,up)), yc=cross(xc,zc);
+    return {eye, xc, yc, zc};
   }
   function worldToCam(p,cam){ const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}); const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z; const pe=sub(p,cam.eye); return {x:dot(pe,cam.xc), y:dot(pe,cam.yc), z:dot(pe,cam.zc)}; }
   function projectCam(pc,f){const inv=(pc.z<=0?1e-6:1/pc.z); return {x:pc.x*f*inv, y:pc.y*f*inv, z:pc.z};}
@@ -173,11 +176,13 @@
       .map(p=>projectCam(worldToCam(p,cam),1));
     let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
     for(const q of corners){minX=Math.min(minX,q.x);maxX=Math.max(maxX,q.x);minY=Math.min(minY,q.y);maxY=Math.max(maxY,q.y);}
-    const halfW=(w/2-pad),halfH=(h/2-pad); const needFx=halfW/Math.max(Math.abs(minX),Math.abs(maxX)); const needFy=halfH/Math.max(Math.abs(minY),Math.abs(maxY));
+    const halfW=(w/2-pad),halfH=(h/2-pad);
+    const needFx=halfW/Math.max(Math.abs(minX),Math.abs(maxX));
+    const needFy=halfH/Math.max(Math.abs(minY),Math.abs(maxY));
     return Math.min(Math.max(1,Math.min(needFx,needFy)), f0*10)*0.98;
   }
 
-  // ===== Fondo: recuadro contenedor =====
+  // ===== Recuadro contenedor =====
   function roundedRectPath(x,y,w,h,r){
     const rr=Math.min(r, w/2, h/2);
     ctx.beginPath();
@@ -200,7 +205,7 @@
 
     ctx.save();
     roundedRectPath(x,y,w,h, FRAME_RADIUS * dpr);
-    ctx.fillStyle   = FRAME_FILL;   // translúcido (ajusta alfa en FRAME_FILL)
+    ctx.fillStyle   = FRAME_FILL;
     ctx.fill();
     ctx.lineWidth   = 2 * dpr;
     ctx.strokeStyle = FRAME_STROKE;
@@ -259,10 +264,11 @@
     ctx.strokeStyle='rgba(255,255,255,.98)'; ctx.lineWidth=5*dpr; ctx.beginPath(); ctx.moveTo(pts[3].x,pts[3].y); ctx.lineTo(pts[2].x,pts[2].y); ctx.stroke();
     ctx.restore();
 
-    const poleOffset=0.35,poleRadius=0.07;
+    const poleOffset=0.35;
     const Lb={x:0,y:-COURT_H/2-poleOffset,z:0}, Lt={x:0,y:-COURT_H/2-poleOffset,z:NET_H+0.4};
     const Rb={x:0,y: COURT_H/2+poleOffset,z:0}, Rt={x:0,y: COURT_H/2+poleOffset,z:NET_H+0.4};
-    drawPole(Lb,Lt,poleRadius,cam,f,sx,sy,dpr); drawPole(Rb,Rt,poleRadius,cam,f,sx,sy,dpr);
+    drawPole(Lb,Lt,POLE_RADIUS,cam,f,sx,sy,dpr);
+    drawPole(Rb,Rt,POLE_RADIUS,cam,f,sx,sy,dpr);
   }
   function drawPole(base,top,radius,cam,f,sx,sy,dpr){
     const b=projectCam(worldToCam(base,cam),f), t=projectCam(worldToCam(top,cam),f);
@@ -322,7 +328,7 @@
       `FOV:  ${FOV.toFixed(1)}°`
     ];
     const w = 170*dpr, h = lines.length*lineH + pad*2;
-    const x = 10*dpr, y = 10*dpr; // esquina sup. izda
+    const x = 10*dpr, y = 10*dpr;
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,.42)'; ctx.fillRect(x, y, w, h);
     ctx.fillStyle = '#fff'; ctx.font = `${12*dpr}px Inter,system-ui,Arial`; ctx.textBaseline = 'top';
@@ -344,27 +350,27 @@
     // Polígono del top de la pista
     const poly=rectProj.map(q=>({x:sx+q.x,y:sy-q.y}));
 
-    // 1) Recuadro semitransparente que contiene el campo
+    // 1) Recuadro
     drawContainerFrame(poly, dpr);
 
-    // 2) Prisma + cara superior de la pista (sólida)
+    // 2) Prisma + cara superior
     drawCourtPrism(cam,f,sx,sy,dpr);
     const topY=Math.min(poly[0].y,poly[1].y), botY=Math.max(poly[2].y,poly[3].y);
     const grad=courtGradient(ctx,topY,botY);
     ctx.fillStyle=grad; ctx.beginPath(); ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y); ctx.closePath(); ctx.fill();
 
-    // 3) Borde perimetral, líneas y red
+    // 3) Borde, líneas y red
     ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'#fff';
     ctx.lineWidth=4*dpr; ctx.beginPath(); ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y); ctx.closePath(); ctx.stroke();
     drawCourtLines(cam,f,sx,sy,dpr);
     drawNetWithPosts(cam,f,sx,sy,dpr);
 
-    // 4) Heatmap con %
+    // 4) Heatmap
     drawHeatmap(countsHalf,cam,f,sx,sy,dpr);
 
     // 5) HUDs
-    drawPaletteHUD(dpr); // (oculto por defecto)
-    drawCameraHUD(dpr);  // (visible por defecto)
+    drawPaletteHUD(dpr);
+    drawCameraHUD(dpr);
   }
   function render(agg){ lastAgg=agg; drawScene(agg.countsHalf); }
   function rerender(){ drawScene(lastAgg.countsHalf); }
@@ -372,22 +378,31 @@
   // ===== Resize =====
   const ro=new ResizeObserver(()=>rerender()); ro.observe(document.querySelector('.stage'));
 
-  // ===== Animación inicial =====
+  // ===== Animación inicial (cambia: yaw 44 → 89) =====
   let __introDone=false;
   function animateIntroCamera(){
     if (__introDone) return; __introDone=true;
-    const startYaw=90,endYaw=80,startElev=30,endElev=30,startDist=14,endDist=14,duration=1600,t0=performance.now();
+    const startYaw=44, endYaw=89;         // ← lo pedido
+    const startElev=30, endElev=30;
+    const startDist=14, endDist=14;
+    const duration=2500;
+    const t0=performance.now();
     const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-    function step(now){const raw=(now-t0)/duration,t=Math.max(0,Math.min(1,raw)),e=ease(t);
-      YAW_DEG=startYaw+(endYaw-startYaw)*e; ELEV_DEG=startElev+(endElev-startElev)*e; DIST=startDist+(endDist-startDist)*e;
-      rerender(); if(t<1) requestAnimationFrame(step);}
+    function step(now){
+      const raw=(now-t0)/duration, t=Math.max(0,Math.min(1,raw)), e=ease(t);
+      YAW_DEG=startYaw+(endYaw-startYaw)*e;
+      ELEV_DEG=startElev+(endElev-startElev)*e;
+      DIST=startDist+(endDist-startDist)*e;
+      rerender();
+      if (t<1) requestAnimationFrame(step);
+    }
     requestAnimationFrame(step);
   }
 
   // ===== Teclado =====
   window.addEventListener("keydown",(e)=>{
     const k=e.key;
-    // Cámara (ajuste en directo)
+    // Cámara
     if (k==='ArrowLeft'){YAW_DEG=wrapDeg(YAW_DEG-3); rerender(); e.preventDefault();}
     if (k==='ArrowRight'){YAW_DEG=wrapDeg(YAW_DEG+3); rerender(); e.preventDefault();}
     if (k==='ArrowUp'){ELEV_DEG=clamp(ELEV_DEG+2,0,85); rerender(); e.preventDefault();}
@@ -405,7 +420,7 @@
     if (k==='c'||k==='C'){CAMHUD_ON=!CAMHUD_ON; rerender();}
   });
 
-  // ===== GViz load + primer render =====
+  // ===== Carga inicial =====
   render({countsHalf:{home:Array(6).fill(0),away:Array(6).fill(0)}});
   (function load(){injectScript(); if (REFRESH_SEC>0) setTimeout(load, REFRESH_SEC*1000);})();
   animateIntroCamera();
@@ -413,5 +428,6 @@
 </script>
 </body>
 </html>
+
 
 
