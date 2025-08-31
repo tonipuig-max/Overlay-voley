@@ -43,37 +43,164 @@
 <script>
 (function(){
   const p=new URLSearchParams(location.search);
-  const API=p.get('api')||''; const COLS=Math.min(5,Math.max(1,parseInt(p.get('cols')||'5',10)));
+  const API=p.get('api')||'';
+  const TOKEN=p.get('token')||'';
+  const COLS=Math.min(5,Math.max(1,parseInt(p.get('cols')||'5',10)));
   const SCALE=Math.max(12,parseInt(p.get('scale')||'16',10));
-  const SHOW_TOTALS=p.get('totals')==='1'; const SHADOW=p.get('shadow')==='1';
+  const SHOW_TOTALS=p.get('totals')==='1';
+  const SHADOW=p.get('shadow')==='1';
+
   document.documentElement.style.setProperty('--scale',SCALE);
   if(SHADOW)document.getElementById('root').classList.add('shadow-on');
-  const $=s=>document.querySelector(s); const headEl=$('#head'),tableEl=$('#table');
-  function gridTemplate(){return`minmax(${SCALE*7}px,1fr)`+' auto'.repeat(COLS)+(SHOW_TOTALS?' auto':'');}
-  function buildHead(){headEl.innerHTML='';headEl.style.gridTemplateColumns=gridTemplate();const e=document.createElement('div');e.className='cell';headEl.appendChild(e);
-    for(let i=1;i<=COLS;i++){const c=document.createElement('div');c.className='cell';c.textContent=`S ${i}`;headEl.appendChild(c);}
-    if(SHOW_TOTALS){const c=document.createElement('div');c.className='cell divider-h';c.textContent='SETS';headEl.appendChild(c);}
+
+  const $=s=>document.querySelector(s);
+  const headEl=$('#head'), tableEl=$('#table');
+
+  // plantilla de columnas dinámica
+  const gridTemplate = cols => `minmax(${SCALE*7}px,1fr)` + ' auto'.repeat(cols) + (SHOW_TOTALS?' auto':'');
+
+  function buildHead(cols){
+    headEl.innerHTML='';
+    headEl.style.gridTemplateColumns=gridTemplate(cols);
+
+    // celda del nombre de equipo (vacía)
+    const e=document.createElement('div'); e.className='cell'; headEl.appendChild(e);
+
+    // S 1..cols
+    for(let i=1;i<=cols;i++){
+      const c=document.createElement('div');
+      c.className='cell';
+      c.textContent=`S ${i}`;
+      headEl.appendChild(c);
+    }
+    // SETS
+    if(SHOW_TOTALS){
+      const c=document.createElement('div');
+      c.className='cell divider-h';
+      c.textContent='SETS';
+      headEl.appendChild(c);
+    }
   }
-  function buildRow(lab){const r=document.createElement('div');r.className='row';r.style.gridTemplateColumns=gridTemplate();
-    const t=document.createElement('div');t.className='cell team';t.innerHTML=`<span class="team-pill">${lab}</span>`;r.appendChild(t);
-    for(let i=0;i<COLS;i++){const c=document.createElement('div');c.className='cell score';c.textContent='—';r.appendChild(c);}
-    if(SHOW_TOTALS){const ct=document.createElement('div');ct.className='cell score divider-b';ct.textContent='0';r.appendChild(ct);}
-    return r;}
-  function init(n){headEl.innerHTML='';tableEl.innerHTML='';buildHead();tableEl.appendChild(buildRow(n.home));tableEl.appendChild(buildRow(n.away));}
-  function render(n,h){if(!tableEl.children.length)init(n);const pillH=tableEl.children[0].querySelector('.team-pill');const pillA=tableEl.children[1].querySelector('.team-pill');
-    if(pillH&&pillH.textContent!==n.home)pillH.textContent=n.home;if(pillA&&pillA.textContent!==n.away)pillA.textContent=n.away;
-    const ph=[],pa=[];for(let i=0;i<COLS;i++){const r=h[i]||{};ph[i]=Number(r.points_home||0);pa[i]=Number(r.points_away||0);}
-    const rowH=tableEl.children[0],rowA=tableEl.children[1];
-    for(let i=0;i<COLS;i++){rowH.children[1+i].textContent=String(ph[i]??'—');rowA.children[1+i].textContent=String(pa[i]??'—');}
-    if(SHOW_TOTALS){let th=0,ta=0;for(let i=0;i<COLS;i++){if(ph[i]>pa[i])th++;else if(pa[i]>ph[i])ta++;}rowH.children[1+COLS].textContent=th;rowA.children[1+COLS].textContent=ta;}}
-  let last='';async function fetchData(){if(!API)return;try{const[rS,rH]=await Promise.all([fetch(API+'?t='+Date.now(),{cache:'no-store'}),fetch(API+'?type=history&t='+Date.now(),{cache:'no-store'})]);
-    const js=await rS.json().catch(()=>({}));const jh=await rH.json().catch(()=>({history:[]}));const d=js.data||js||{};const hist=Array.isArray(jh.history)?jh.history:[];
-    const n={home:String(d.team_home||'HOME'),away:String(d.team_away||'AWAY')};const snap=JSON.stringify({n,h:hist.map(r=>({ph:r.points_home,pa:r.points_away}))});
-    if(snap!==last){last=snap;render(n,hist);}}catch(_){}}function loop(){fetchData().finally(()=>setTimeout(loop,1500));}
-  init({home:'HOME',away:'AWAY'});buildHead();loop();
+
+  function buildRow(label, cols){
+    const r=document.createElement('div');
+    r.className='row';
+    r.style.gridTemplateColumns=gridTemplate(cols);
+
+    const t=document.createElement('div');
+    t.className='cell team';
+    t.innerHTML=`<span class="team-pill">${label}</span>`;
+    r.appendChild(t);
+
+    for(let i=0;i<cols;i++){
+      const c=document.createElement('div');
+      c.className='cell score';
+      c.textContent='—';
+      r.appendChild(c);
+    }
+
+    if(SHOW_TOTALS){
+      const ct=document.createElement('div');
+      ct.className='cell score divider-b';
+      ct.textContent='0';
+      r.appendChild(ct);
+    }
+    return r;
+  }
+
+  // calcula cuántas columnas de set mostrar: desde S1 hasta el primero que esté 0-0
+  function calcVisibleCols(hist){
+    let visible=0;
+    for(let i=0;i<COLS;i++){
+      const r=hist[i]||{};
+      const ph=Number(r.points_home||0);
+      const pa=Number(r.points_away||0);
+      if (ph===0 && pa===0) break;   // al primer 0-0, paramos
+      visible = i+1;
+    }
+    return visible;
+  }
+
+  function render(names, hist){
+    const cols = calcVisibleCols(hist);
+
+    // reconstruye cabecera y filas con el nº de columnas visible
+    headEl.innerHTML=''; tableEl.innerHTML='';
+    buildHead(cols);
+    const rowH=buildRow(names.home, cols);
+    const rowA=buildRow(names.away, cols);
+    tableEl.appendChild(rowH); tableEl.appendChild(rowA);
+
+    // rellenar puntos de sets visibles
+    for(let i=0;i<cols;i++){
+      const r=hist[i]||{};
+      const ph=Number(r.points_home||0);
+      const pa=Number(r.points_away||0);
+      rowH.children[1+i].textContent = String(ph);
+      rowA.children[1+i].textContent = String(pa);
+    }
+
+    // totales (solo contando los sets visibles)
+    if(SHOW_TOTALS){
+      let th=0, ta=0;
+      for(let i=0;i<cols;i++){
+        const r=hist[i]||{};
+        const ph=Number(r.points_home||0);
+        const pa=Number(r.points_away||0);
+        if (ph>pa) th++; else if (pa>ph) ta++;
+      }
+      // última celda de cada fila
+      rowH.lastChild.textContent = String(th);
+      rowA.lastChild.textContent = String(ta);
+    }
+  }
+
+  // ======== Fetch & refresh ========
+  let lastSnap='';
+  async function fetchData(){
+    if(!API) return;
+    try{
+      const qsBase = API + (API.includes('?')?'&':'?') + (TOKEN?('token='+encodeURIComponent(TOKEN)+'&'):'') + 't=' + Date.now();
+      const [rS, rH] = await Promise.all([
+        fetch(qsBase, {cache:'no-store'}),
+        fetch(API + (API.includes('?')?'&':'?') + (TOKEN?('token='+encodeURIComponent(TOKEN)+'&'):'') + 'type=history&t=' + Date.now(), {cache:'no-store'})
+      ]);
+
+      const js=await rS.json().catch(()=>({}));
+      const jh=await rH.json().catch(()=>({history:[]}));
+
+      const d=js.data||js||{};
+      const hist=Array.isArray(jh.history)?jh.history:[];
+
+      const names = { home:String(d.team_home||'HOME'), away:String(d.team_away||'AWAY') };
+
+      // snapshot para evitar repintados innecesarios
+      const vis = calcVisibleCols(hist);
+      const snap = JSON.stringify({
+        names,
+        vis,
+        h: hist.slice(0,vis).map(r=>({ph:r.points_home, pa:r.points_away}))
+      });
+
+      if (snap !== lastSnap){
+        lastSnap = snap;
+        render(names, hist);
+      }
+    }catch(_){ /* silencioso en OBS */ }
+  }
+
+  function loop(){ fetchData().finally(()=>setTimeout(loop,1500)); }
+
+  // primer render base
+  buildHead(0);
+  tableEl.appendChild(buildRow('HOME',0));
+  tableEl.appendChild(buildRow('AWAY',0));
+
+  loop();
 })();
 </script>
 </body>
 </html>
+
 
 
