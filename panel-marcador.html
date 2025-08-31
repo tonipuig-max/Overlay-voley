@@ -30,6 +30,7 @@
   th,td{padding:8px}
   th{color:var(--sub);font-weight:600}
   .cell{display:flex;align-items:center;justify-content:center;gap:6px}
+  .thName{max-width:140px; display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:bottom}
   .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(11,14,18,.95), rgba(11,14,18,.6), transparent)}
   .status{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .dot{width:10px;height:10px;border-radius:50%;background:var(--danger)}
@@ -52,15 +53,13 @@
     </div>
   </div>
 
-  <!-- Nombres equipos -->
+  <!-- Nombres equipos (autosave) -->
   <div class="card">
     <div class="grid grid2">
       <div><label>Equipo HOME</label><input id="nameHome" /></div>
       <div><label>Equipo AWAY</label><input id="nameAway" /></div>
     </div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" onclick="saveNames()">Guardar nombres</button>
-    </div>
+    <div class="small" style="margin-top:8px">Los nombres se guardan automáticamente al validar (Enter) o salir del campo.</div>
   </div>
 
   <!-- Tabla puntos 5x2 -->
@@ -69,9 +68,9 @@
     <table>
       <thead>
         <tr>
-          <th>Set</th>
-          <th>HOME</th>
-          <th>AWAY</th>
+          <th style="width:82px">Set</th>
+          <th><span id="thHome" class="thName">HOME</span></th>
+          <th><span id="thAway" class="thName">AWAY</span></th>
         </tr>
       </thead>
       <tbody id="pointsBody"></tbody>
@@ -96,12 +95,18 @@
 
   // ===== Utils =====
   const $ = s => document.querySelector(s);
-  const clamp = (n,min,max)=>Math.max(min,Math.min(max,n));
   function saveCfg(){ localStorage.setItem('api', $('#api').value.trim()); localStorage.setItem('tok', $('#tok').value.trim()); pulseNet('Config guardada', true); }
   function loadCfg(){ $('#api').value = localStorage.getItem('api') || ''; $('#tok').value = localStorage.getItem('tok') || ''; }
   function apiURL(){ const u=$('#api').value.trim(); if(!u) throw new Error('Configura la URL API'); return u; }
   function token(){ return $('#tok').value.trim(); }
   function pulseNet(msg, ok){ $('#netdot').classList.toggle('ok', !!ok); $('#netmsg').textContent = msg; $('#lastSync').textContent = ok ? ('Actualizado · ' + new Date().toLocaleTimeString()) : ''; }
+
+  const truncate = (s,max=26)=> (s||'').length>max ? (s.slice(0,max-1)+'…') : (s||'');
+
+  function setTeamHeaders(){
+    $('#thHome').textContent = truncate(state.team_home, 26);
+    $('#thAway').textContent = truncate(state.team_away, 26);
+  }
 
   // ===== Pintado =====
   function paintTable(){
@@ -115,7 +120,7 @@
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><span class="badge-set">Set ${setNo}</span></td>
+        <td><span class="badge-set">S ${setNo}</span></td>
         <td>
           <div class="cell">
             <button class="btn" onclick="bump(${setNo}, 'home', -1)">−</button>
@@ -146,6 +151,7 @@
   function renderAll(){
     $('#nameHome').value = state.team_home;
     $('#nameAway').value = state.team_away;
+    setTeamHeaders();
     paintTable();
   }
 
@@ -224,14 +230,12 @@
 
   // ===== Acciones =====
 
-  // + / − por set/equipo (UI optimista mínima SOLO en input, sin GET)
+  // + / − por set/equipo (pinto en el input y POST; sin GET)
   function bump(setNo, side, delta){
-    const idx = setNo - 1;
     const input = document.getElementById(`in_${side}_${setNo}`);
     const cur = Number(input.value || 0);
     const next = Math.max(0, cur + delta);
     input.value = next; // pinta ya
-    // manda acción al backend sobre ese set concreto
     const action = delta>0 ? (side==='home'?'inc_home':'inc_away') : (side==='home'?'dec_home':'dec_away');
     postPatch({ action, set_target: setNo });
   }
@@ -244,19 +248,36 @@
     postPatch(payload);
   }
 
-  // Guardar nombres (envía SIEMPRE ambos valores para replicar las 5 filas)
-  function saveNames(){
+  // Autosave de nombres (Enter o blur)
+  function autoSaveNames(){
     const th = $('#nameHome').value.trim();
     const ta = $('#nameAway').value.trim();
-    if (!th && !ta){ pulseNet('Introduce los nombres', false); return; }
-    postPatch({ team_home: th || state.team_home, team_away: ta || state.team_away });
+    const willChange = (th && th !== state.team_home) || (ta && ta !== state.team_away);
+    if (!willChange) return;
+    // Actualiza cabecera local para feedback inmediato
+    if (th) state.team_home = th;
+    if (ta) state.team_away = ta;
+    setTeamHeaders();
+    // Envía ambos para replicar 5 filas
+    postPatch({ team_home: state.team_home, team_away: state.team_away });
   }
 
   // ===== Init =====
+  function bindNameAutosave(){
+    const h = $('#nameHome'), a = $('#nameAway');
+    const handler = (ev)=>{ if (ev.type==='keydown' && ev.key!=='Enter') return; ev.target.blur(); autoSaveNames(); };
+    h.addEventListener('keydown', handler);
+    a.addEventListener('keydown', handler);
+    h.addEventListener('blur', ()=>autoSaveNames());
+    a.addEventListener('blur', ()=>autoSaveNames());
+  }
+
   loadCfg();
+  bindNameAutosave();
   loadAll();
 </script>
 </body>
 </html>
+
 
 
