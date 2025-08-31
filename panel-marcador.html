@@ -39,7 +39,16 @@
   .btn-ok   { background:#e9f7ee; border-color:#bfe8ca; color:#0f5132 }
   .btn-accent{ background:#e8efff; border-color:#c7d5ff; color:#1e40af }
   .scoreInput{width:64px;text-align:center;font-size:28px;font-weight:900;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid var(--input-border);color:var(--text)}
-  .badge-set{min-width:48px;text-align:center;border:1px solid var(--muted);border-radius:8px;padding:4px 6px;background:#fff;color:var(--text)}
+  .badge-set{
+    min-width:48px;
+    text-align:center;
+    border:1px solid var(--muted);
+    border-radius:8px;
+    padding:4px 6px;
+    background:#fff;
+    color:var(--text);
+    white-space:nowrap; /* 🔑 evita que se parta “S” y el número */
+  }
   table{width:100%;border-collapse:separate;border-spacing:0 8px}
   th,td{padding:8px}
   th{color:var(--sub);font-weight:600;border-bottom:1px solid var(--muted)}
@@ -79,7 +88,7 @@
     </table>
   </div>
 
-  <!-- Config (ahora al final) -->
+  <!-- Config (al final) -->
   <div class="card">
     <h1>Panel Marcador</h1>
     <div class="grid grid2">
@@ -104,7 +113,7 @@
 </div>
 
 <script>
-  // ===== Estado y funciones idénticas a la versión anterior =====
+  // ===== Estado y funciones como antes =====
   let state = { team_home:'HOME', team_away:'AWAY', points_home:0, points_away:0, sets_home:0, sets_away:0, set_number:1 };
   let history = [];
   const $ = s => document.querySelector(s);
@@ -132,6 +141,7 @@ ih.addEventListener('keydown',e=>{if(e.key==='Enter'){ih.blur();}}); ia.addEvent
 </script>
 </body>
 </html>
+
 
 
 
