@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OBS Marcador Vóley</title>
+<style>
+  /* Fondo totalmente transparente para OBS */
+  html,body{margin:0; padding:0; background:transparent;}
+  :root{
+    --scale: 22;              /* tamaño base (cambia con ?scale=) */
+    --fg: #ffffff;            /* texto principal */
+    --sub:#dbe4f0;            /* texto secundario */
+    --accent:#00e5ff;         /* detalles */
+    --row-bg: rgba(0,0,0,0.35);   /* fondo fila */
+    --row-bg-2: rgba(0,0,0,0.28); /* fondo fila alterna */
+    --cell-gap: 8px;
+    --radius: 12px;
+    --shadow: 0px 2px 6px rgba(0,0,0,0.35);
+  }
+  .wrap{
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    color: var(--fg);
+    font-size: calc(var(--scale) * 1px);
+    line-height: 1.2;
+    display: inline-block;
+  }
+  .table{
+    display: grid;
+    grid-auto-rows: 1fr;
+    gap: var(--cell-gap);
+  }
+  .row{
+    display: grid;
+    align-items: center;
+    gap: var(--cell-gap);
+    padding: calc(var(--scale)*0.35px) calc(var(--scale)*0.5px);
+    border-radius: var(--radius);
+    backdrop-filter: blur(2px);
+    box-shadow: var(--shadow);
+  }
+  .row:nth-child(odd){ background: var(--row-bg); }
+  .row:nth-child(even){ background: var(--row-bg-2); }
+
+  .cell{
+    display:flex; align-items:center; justify-content:center;
+    min-width: calc(var(--scale)*1.8px);
+    padding: 0 calc(var(--scale)*0.2px);
+    white-space: nowrap;
+  }
+  .team{
+    justify-content: flex-start;
+    font-weight: 800;
+    letter-spacing: .2px;
+    text-shadow: 0 1px 1px rgba(0,0,0,.35);
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .team-pill{
+    display:inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(0,0,0,.22);
+    border: 1px solid rgba(255,255,255,.18);
+  }
+  .score{
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+  .head{
+    display:grid;
+    gap: var(--cell-gap);
+    align-items:center;
+    margin-bottom: calc(var(--scale)*0.35px);
+    opacity:.92;
+  }
+  .head .cell{
+    color: var(--sub);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+  .badge{
+    display:inline-block;
+    border: 1px solid rgba(255,255,255,.22);
+    border-radius: 8px;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+  .hide{ display:none; }
+
+  /* Opcional: sombra de texto extra cuando ?shadow=1 */
+  .shadow-on *{
+    text-shadow: 0 1px 2px rgba(0,0,0,.35), 0 2px 12px rgba(0,0,0,.25);
+  }
+</style>
+</head>
+<body>
+<div id="root" class="wrap">
+  <!-- Cabecera dinámica -->
+  <div id="head" class="head"></div>
+  <!-- Tabla de dos filas -->
+  <div id="table" class="table"></div>
+</div>
+
+<script>
+(function(){
+  // ======== Config por URL ========
+  const params = new URLSearchParams(location.search);
+  const API = params.get('api') || '';
+  const TOKEN = params.get('token') || '';
+  const COLS = Math.min(5, Math.max(1, parseInt(params.get('cols')||'5',10)));
+  const SCALE = Math.max(14, parseInt(params.get('scale')||'22',10));
+  const SHOW_TOTALS = params.get('totals') === '1';
+  const SHADOW = params.get('shadow') === '1';
+
+  // Aplicar escala y sombra
+  document.documentElement.style.setProperty('--scale', SCALE);
+  if (SHADOW) document.getElementById('root').classList.add('shadow-on');
+
+  // ======== Util ========
+  const $ = s => document.querySelector(s);
+  const headEl = $('#head');
+  const tableEl = $('#table');
+
+  // Estructura de columnas: [TEAM, S1..Sn, (SETS?)]
+  function buildHead(teamHome, teamAway){
+    headEl.innerHTML = '';
+    const cols = 1 + COLS + (SHOW_TOTALS ? 1 : 0);
+
+    headEl.style.gridTemplateColumns = `minmax(${SCALE*7}px, 1fr) ${' auto'.repeat(COLS)}${SHOW_TOTALS?' auto':''}`;
+    // Primera celda vacía (para el nombre de equipo)
+    const c0 = document.createElement('div');
+    c0.className = 'cell';
+    c0.innerHTML = `<span class="badge">Marcador</span>`;
+    headEl.appendChild(c0);
+
+    for (let i=1;i<=COLS;i++){
+      const c = document.createElement('div');
+      c.className = 'cell';
+      c.textContent = `S ${i}`;
+      headEl.appendChild(c);
+    }
+    if (SHOW_TOTALS){
+      const cT = document.createElement('div');
+      cT.className = 'cell';
+      cT.textContent = 'SETS';
+      headEl.appendChild(cT);
+    }
+  }
+
+  function buildRow(teamLabel){
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.gridTemplateColumns = `minmax(${SCALE*7}px, 1fr) ${' auto'.repeat(COLS)}${SHOW_TOTALS?' auto':''}`;
+
+    const team = document.createElement('div');
+    team.className = 'cell team';
+    team.innerHTML = `<span class="team-pill">${teamLabel}</span>`;
+    row.appendChild(team);
+
+    // Celdas de sets
+    for (let i=0;i<COLS;i++){
+      const c = document.createElement('div');
+      c.className = 'cell score';
+      c.textContent = '—';
+      row.appendChild(c);
+    }
+    // Total sets (opcional)
+    if (SHOW_TOTALS){
+      const cT = document.createElement('div');
+      cT.className = 'cell score';
+      cT.textContent = '0';
+      row.appendChild(cT);
+    }
+    return row;
+  }
+
+  // Inicializa DOM (estructura)
+  function initTable(names){
+    headEl.innerHTML = '';
+    tableEl.innerHTML = '';
+
+    buildHead(names.home, names.away);
+    const rHome = buildRow(names.home);
+    const rAway = buildRow(names.away);
+    tableEl.appendChild(rHome);
+    tableEl.appendChild(rAway);
+  }
+
+  // Pinta marcadores
+  function render(names, hist){
+    // Asegura estructura
+    if (!tableEl.children.length) initTable(names);
+
+    // Actualiza nombres si han cambiado
+    const pillHome = tableEl.children[0].querySelector('.team-pill');
+    const pillAway = tableEl.children[1].querySelector('.team-pill');
+    if (pillHome && pillHome.textContent !== names.home) pillHome.textContent = names.home;
+    if (pillAway && pillAway.textContent !== names.away) pillAway.textContent = names.away;
+
+    // Extrae puntos por set (5 filas en la hoja)
+    // hist es un array de objetos con keys points_home/points_away, winner/finished (si las usas)
+    const pointsHome = [];
+    const pointsAway = [];
+    for (let i=0;i<COLS;i++){
+      const row = hist[i] || {};
+      pointsHome[i] = Number(row.points_home || 0);
+      pointsAway[i] = Number(row.points_away || 0);
+    }
+
+    // Pinta celdas de sets
+    const rowHome = tableEl.children[0];
+    const rowAway = tableEl.children[1];
+
+    for (let i=0;i<COLS;i++){
+      // +1 por la celda del nombre de equipo
+      const cellH = rowHome.children[1+i];
+      const cellA = rowAway.children[1+i];
+      if (cellH) cellH.textContent = String(pointsHome[i] ?? '—');
+      if (cellA) cellA.textContent = String(pointsAway[i] ?? '—');
+    }
+
+    // Totales (opcional): cuenta sets ganados por comparación de puntos
+    if (SHOW_TOTALS){
+      let th=0, ta=0;
+      for (let i=0;i<COLS;i++){
+        const ph = pointsHome[i] ?? 0;
+        const pa = pointsAway[i] ?? 0;
+        if (ph>pa) th++; else if (pa>ph) ta++;
+      }
+      const cellHTotal = rowHome.children[1+COLS];
+      const cellATotal = rowAway.children[1+COLS];
+      if (cellHTotal) cellHTotal.textContent = String(th);
+      if (cellATotal) cellATotal.textContent = String(ta);
+    }
+  }
+
+  // ======== Carga de datos ========
+  let lastJson = '';
+  async function fetchData(){
+    if (!API) return;
+    try{
+      // Trae estado (nombres) + historia (puntos por set)
+      const [rState, rHist] = await Promise.all([
+        fetch(API + (API.includes('?')?'&':'?') + 't=' + Date.now(), { cache:'no-store' }),
+        fetch(API + (API.includes('?')?'&':'?') + 'type=history&t=' + Date.now(), { cache:'no-store' })
+      ]);
+
+      const js = await rState.json().catch(()=>({}));
+      const jh = await rHist.json().catch(()=>({history:[]}));
+
+      const data = js.data || js || {};
+      const history = Array.isArray(jh.history) ? jh.history : [];
+
+      const names = {
+        home: String(data.team_home || 'HOME'),
+        away: String(data.team_away || 'AWAY')
+      };
+
+      // Evita repintar si no cambió nada (reduce parpadeo)
+      const snapshot = JSON.stringify({names, history: history.map(r=>({ph:r.points_home, pa:r.points_away}))});
+      if (snapshot !== lastJson){
+        lastJson = snapshot;
+        render(names, history);
+      }
+    }catch(e){
+      // en caso de error, no hacemos nada para evitar flashes
+      // console.error(e);
+    }
+  }
+
+  // ======== Bucle de refresco ========
+  function tick(){
+    fetchData().finally(()=>{
+      setTimeout(tick, 1500); // 1.5 s
+    });
+  }
+
+  // ======== Bootstrap ========
+  // Primer pintado “vacío”
+  initTable({home:'HOME', away:'AWAY'});
+  // Arranca refresco
+  tick();
+
+  // Si hay token, lo añadimos como query param de lectura (no es necesario para GET si tu API lo permite sin token)
+  // *En esta versión lo usamos solo para POST; GET no lo requiere en tu backend.*
+})();
+</script>
+</body>
+</html>
