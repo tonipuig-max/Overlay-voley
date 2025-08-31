@@ -2,289 +2,78 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OBS Marcador Vóley</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OBS Marcador Vóley Vivo</title>
 <style>
-  /* Fondo totalmente transparente para OBS */
-  html,body{margin:0; padding:0; background:transparent;}
+  html,body{margin:0;padding:0;background:transparent}
   :root{
-    --scale: 22;              /* tamaño base (cambia con ?scale=) */
-    --fg: #ffffff;            /* texto principal */
-    --sub:#dbe4f0;            /* texto secundario */
-    --accent:#00e5ff;         /* detalles */
-    --row-bg: rgba(0,0,0,0.35);   /* fondo fila */
-    --row-bg-2: rgba(0,0,0,0.28); /* fondo fila alterna */
-    --cell-gap: 8px;
-    --radius: 12px;
-    --shadow: 0px 2px 6px rgba(0,0,0,0.35);
+    --scale:16;
+    --fg:#ffffff;
+    --sub:#fffae5;
+    --row1:rgba(255,102,0,0.65);     /* naranja vivo */
+    --row2:rgba(0,128,255,0.65);     /* azul vivo */
+    --border:#ffffff;                /* separador blanco */
+    --badge:rgba(255,255,255,.25);
+    --badge-bd:rgba(255,255,255,.6);
+    --radius:10px;
+    --gap:6px;
+    --padY: calc(var(--scale)*0.25px);
+    --padX: calc(var(--scale)*0.35px);
   }
-  .wrap{
-    font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    color: var(--fg);
-    font-size: calc(var(--scale) * 1px);
-    line-height: 1.2;
-    display: inline-block;
-  }
-  .table{
-    display: grid;
-    grid-auto-rows: 1fr;
-    gap: var(--cell-gap);
-  }
-  .row{
-    display: grid;
-    align-items: center;
-    gap: var(--cell-gap);
-    padding: calc(var(--scale)*0.35px) calc(var(--scale)*0.5px);
-    border-radius: var(--radius);
-    backdrop-filter: blur(2px);
-    box-shadow: var(--shadow);
-  }
-  .row:nth-child(odd){ background: var(--row-bg); }
-  .row:nth-child(even){ background: var(--row-bg-2); }
-
-  .cell{
-    display:flex; align-items:center; justify-content:center;
-    min-width: calc(var(--scale)*1.8px);
-    padding: 0 calc(var(--scale)*0.2px);
-    white-space: nowrap;
-  }
-  .team{
-    justify-content: flex-start;
-    font-weight: 800;
-    letter-spacing: .2px;
-    text-shadow: 0 1px 1px rgba(0,0,0,.35);
-    overflow: hidden; text-overflow: ellipsis;
-  }
-  .team-pill{
-    display:inline-block;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: rgba(0,0,0,.22);
-    border: 1px solid rgba(255,255,255,.18);
-  }
-  .score{
-    font-weight: 900;
-    font-variant-numeric: tabular-nums;
-  }
-  .head{
-    display:grid;
-    gap: var(--cell-gap);
-    align-items:center;
-    margin-bottom: calc(var(--scale)*0.35px);
-    opacity:.92;
-  }
-  .head .cell{
-    color: var(--sub);
-    text-transform: uppercase;
-    font-weight: 700;
-    letter-spacing: .5px;
-  }
-  .badge{
-    display:inline-block;
-    border: 1px solid rgba(255,255,255,.22);
-    border-radius: 8px;
-    padding: 2px 6px;
-    white-space: nowrap;
-  }
-  .hide{ display:none; }
-
-  /* Opcional: sombra de texto extra cuando ?shadow=1 */
-  .shadow-on *{
-    text-shadow: 0 1px 2px rgba(0,0,0,.35), 0 2px 12px rgba(0,0,0,.25);
-  }
+  .wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--fg);font-size:calc(var(--scale)*1px);line-height:1.1;display:inline-block}
+  .head,.table{display:grid;gap:var(--gap)}
+  .row{display:grid;align-items:center;gap:var(--gap);padding:var(--padY) var(--padX);border-radius:var(--radius);backdrop-filter:blur(2px)}
+  .row:nth-child(odd){background:var(--row1)}
+  .row:nth-child(even){background:var(--row2)}
+  .cell{display:flex;align-items:center;justify-content:center;white-space:nowrap;min-width:calc(var(--scale)*1.6px)}
+  .team{justify-content:flex-start;font-weight:800;overflow:hidden;text-overflow:ellipsis}
+  .team-pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--badge);border:1px solid var(--badge-bd)}
+  .score{font-weight:900;font-variant-numeric:tabular-nums}
+  .head .cell{color:var(--sub);text-transform:uppercase;font-weight:700;letter-spacing:.4px;padding:2px 0}
+  .divider-h{border-left:3px solid var(--border);padding-left:calc(var(--padX))}
+  .divider-b{border-left:3px solid var(--border)}
+  .shadow-on *{text-shadow:0 2px 3px rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.4)}
 </style>
 </head>
 <body>
 <div id="root" class="wrap">
-  <!-- Cabecera dinámica -->
   <div id="head" class="head"></div>
-  <!-- Tabla de dos filas -->
   <div id="table" class="table"></div>
 </div>
-
 <script>
 (function(){
-  // ======== Config por URL ========
-  const params = new URLSearchParams(location.search);
-  const API = params.get('api') || '';
-  const TOKEN = params.get('token') || '';
-  const COLS = Math.min(5, Math.max(1, parseInt(params.get('cols')||'5',10)));
-  const SCALE = Math.max(14, parseInt(params.get('scale')||'22',10));
-  const SHOW_TOTALS = params.get('totals') === '1';
-  const SHADOW = params.get('shadow') === '1';
-
-  // Aplicar escala y sombra
-  document.documentElement.style.setProperty('--scale', SCALE);
-  if (SHADOW) document.getElementById('root').classList.add('shadow-on');
-
-  // ======== Util ========
-  const $ = s => document.querySelector(s);
-  const headEl = $('#head');
-  const tableEl = $('#table');
-
-  // Estructura de columnas: [TEAM, S1..Sn, (SETS?)]
-  function buildHead(teamHome, teamAway){
-    headEl.innerHTML = '';
-    const cols = 1 + COLS + (SHOW_TOTALS ? 1 : 0);
-
-    headEl.style.gridTemplateColumns = `minmax(${SCALE*7}px, 1fr) ${' auto'.repeat(COLS)}${SHOW_TOTALS?' auto':''}`;
-    // Primera celda vacía (para el nombre de equipo)
-    const c0 = document.createElement('div');
-    c0.className = 'cell';
-    c0.innerHTML = `<span class="badge">Marcador</span>`;
-    headEl.appendChild(c0);
-
-    for (let i=1;i<=COLS;i++){
-      const c = document.createElement('div');
-      c.className = 'cell';
-      c.textContent = `S ${i}`;
-      headEl.appendChild(c);
-    }
-    if (SHOW_TOTALS){
-      const cT = document.createElement('div');
-      cT.className = 'cell';
-      cT.textContent = 'SETS';
-      headEl.appendChild(cT);
-    }
+  const p=new URLSearchParams(location.search);
+  const API=p.get('api')||''; const COLS=Math.min(5,Math.max(1,parseInt(p.get('cols')||'5',10)));
+  const SCALE=Math.max(12,parseInt(p.get('scale')||'16',10));
+  const SHOW_TOTALS=p.get('totals')==='1'; const SHADOW=p.get('shadow')==='1';
+  document.documentElement.style.setProperty('--scale',SCALE);
+  if(SHADOW)document.getElementById('root').classList.add('shadow-on');
+  const $=s=>document.querySelector(s); const headEl=$('#head'),tableEl=$('#table');
+  function gridTemplate(){return`minmax(${SCALE*7}px,1fr)`+' auto'.repeat(COLS)+(SHOW_TOTALS?' auto':'');}
+  function buildHead(){headEl.innerHTML='';headEl.style.gridTemplateColumns=gridTemplate();const e=document.createElement('div');e.className='cell';headEl.appendChild(e);
+    for(let i=1;i<=COLS;i++){const c=document.createElement('div');c.className='cell';c.textContent=`S ${i}`;headEl.appendChild(c);}
+    if(SHOW_TOTALS){const c=document.createElement('div');c.className='cell divider-h';c.textContent='SETS';headEl.appendChild(c);}
   }
-
-  function buildRow(teamLabel){
-    const row = document.createElement('div');
-    row.className = 'row';
-    row.style.gridTemplateColumns = `minmax(${SCALE*7}px, 1fr) ${' auto'.repeat(COLS)}${SHOW_TOTALS?' auto':''}`;
-
-    const team = document.createElement('div');
-    team.className = 'cell team';
-    team.innerHTML = `<span class="team-pill">${teamLabel}</span>`;
-    row.appendChild(team);
-
-    // Celdas de sets
-    for (let i=0;i<COLS;i++){
-      const c = document.createElement('div');
-      c.className = 'cell score';
-      c.textContent = '—';
-      row.appendChild(c);
-    }
-    // Total sets (opcional)
-    if (SHOW_TOTALS){
-      const cT = document.createElement('div');
-      cT.className = 'cell score';
-      cT.textContent = '0';
-      row.appendChild(cT);
-    }
-    return row;
-  }
-
-  // Inicializa DOM (estructura)
-  function initTable(names){
-    headEl.innerHTML = '';
-    tableEl.innerHTML = '';
-
-    buildHead(names.home, names.away);
-    const rHome = buildRow(names.home);
-    const rAway = buildRow(names.away);
-    tableEl.appendChild(rHome);
-    tableEl.appendChild(rAway);
-  }
-
-  // Pinta marcadores
-  function render(names, hist){
-    // Asegura estructura
-    if (!tableEl.children.length) initTable(names);
-
-    // Actualiza nombres si han cambiado
-    const pillHome = tableEl.children[0].querySelector('.team-pill');
-    const pillAway = tableEl.children[1].querySelector('.team-pill');
-    if (pillHome && pillHome.textContent !== names.home) pillHome.textContent = names.home;
-    if (pillAway && pillAway.textContent !== names.away) pillAway.textContent = names.away;
-
-    // Extrae puntos por set (5 filas en la hoja)
-    // hist es un array de objetos con keys points_home/points_away, winner/finished (si las usas)
-    const pointsHome = [];
-    const pointsAway = [];
-    for (let i=0;i<COLS;i++){
-      const row = hist[i] || {};
-      pointsHome[i] = Number(row.points_home || 0);
-      pointsAway[i] = Number(row.points_away || 0);
-    }
-
-    // Pinta celdas de sets
-    const rowHome = tableEl.children[0];
-    const rowAway = tableEl.children[1];
-
-    for (let i=0;i<COLS;i++){
-      // +1 por la celda del nombre de equipo
-      const cellH = rowHome.children[1+i];
-      const cellA = rowAway.children[1+i];
-      if (cellH) cellH.textContent = String(pointsHome[i] ?? '—');
-      if (cellA) cellA.textContent = String(pointsAway[i] ?? '—');
-    }
-
-    // Totales (opcional): cuenta sets ganados por comparación de puntos
-    if (SHOW_TOTALS){
-      let th=0, ta=0;
-      for (let i=0;i<COLS;i++){
-        const ph = pointsHome[i] ?? 0;
-        const pa = pointsAway[i] ?? 0;
-        if (ph>pa) th++; else if (pa>ph) ta++;
-      }
-      const cellHTotal = rowHome.children[1+COLS];
-      const cellATotal = rowAway.children[1+COLS];
-      if (cellHTotal) cellHTotal.textContent = String(th);
-      if (cellATotal) cellATotal.textContent = String(ta);
-    }
-  }
-
-  // ======== Carga de datos ========
-  let lastJson = '';
-  async function fetchData(){
-    if (!API) return;
-    try{
-      // Trae estado (nombres) + historia (puntos por set)
-      const [rState, rHist] = await Promise.all([
-        fetch(API + (API.includes('?')?'&':'?') + 't=' + Date.now(), { cache:'no-store' }),
-        fetch(API + (API.includes('?')?'&':'?') + 'type=history&t=' + Date.now(), { cache:'no-store' })
-      ]);
-
-      const js = await rState.json().catch(()=>({}));
-      const jh = await rHist.json().catch(()=>({history:[]}));
-
-      const data = js.data || js || {};
-      const history = Array.isArray(jh.history) ? jh.history : [];
-
-      const names = {
-        home: String(data.team_home || 'HOME'),
-        away: String(data.team_away || 'AWAY')
-      };
-
-      // Evita repintar si no cambió nada (reduce parpadeo)
-      const snapshot = JSON.stringify({names, history: history.map(r=>({ph:r.points_home, pa:r.points_away}))});
-      if (snapshot !== lastJson){
-        lastJson = snapshot;
-        render(names, history);
-      }
-    }catch(e){
-      // en caso de error, no hacemos nada para evitar flashes
-      // console.error(e);
-    }
-  }
-
-  // ======== Bucle de refresco ========
-  function tick(){
-    fetchData().finally(()=>{
-      setTimeout(tick, 1500); // 1.5 s
-    });
-  }
-
-  // ======== Bootstrap ========
-  // Primer pintado “vacío”
-  initTable({home:'HOME', away:'AWAY'});
-  // Arranca refresco
-  tick();
-
-  // Si hay token, lo añadimos como query param de lectura (no es necesario para GET si tu API lo permite sin token)
-  // *En esta versión lo usamos solo para POST; GET no lo requiere en tu backend.*
+  function buildRow(lab){const r=document.createElement('div');r.className='row';r.style.gridTemplateColumns=gridTemplate();
+    const t=document.createElement('div');t.className='cell team';t.innerHTML=`<span class="team-pill">${lab}</span>`;r.appendChild(t);
+    for(let i=0;i<COLS;i++){const c=document.createElement('div');c.className='cell score';c.textContent='—';r.appendChild(c);}
+    if(SHOW_TOTALS){const ct=document.createElement('div');ct.className='cell score divider-b';ct.textContent='0';r.appendChild(ct);}
+    return r;}
+  function init(n){headEl.innerHTML='';tableEl.innerHTML='';buildHead();tableEl.appendChild(buildRow(n.home));tableEl.appendChild(buildRow(n.away));}
+  function render(n,h){if(!tableEl.children.length)init(n);const pillH=tableEl.children[0].querySelector('.team-pill');const pillA=tableEl.children[1].querySelector('.team-pill');
+    if(pillH&&pillH.textContent!==n.home)pillH.textContent=n.home;if(pillA&&pillA.textContent!==n.away)pillA.textContent=n.away;
+    const ph=[],pa=[];for(let i=0;i<COLS;i++){const r=h[i]||{};ph[i]=Number(r.points_home||0);pa[i]=Number(r.points_away||0);}
+    const rowH=tableEl.children[0],rowA=tableEl.children[1];
+    for(let i=0;i<COLS;i++){rowH.children[1+i].textContent=String(ph[i]??'—');rowA.children[1+i].textContent=String(pa[i]??'—');}
+    if(SHOW_TOTALS){let th=0,ta=0;for(let i=0;i<COLS;i++){if(ph[i]>pa[i])th++;else if(pa[i]>ph[i])ta++;}rowH.children[1+COLS].textContent=th;rowA.children[1+COLS].textContent=ta;}}
+  let last='';async function fetchData(){if(!API)return;try{const[rS,rH]=await Promise.all([fetch(API+'?t='+Date.now(),{cache:'no-store'}),fetch(API+'?type=history&t='+Date.now(),{cache:'no-store'})]);
+    const js=await rS.json().catch(()=>({}));const jh=await rH.json().catch(()=>({history:[]}));const d=js.data||js||{};const hist=Array.isArray(jh.history)?jh.history:[];
+    const n={home:String(d.team_home||'HOME'),away:String(d.team_away||'AWAY')};const snap=JSON.stringify({n,h:hist.map(r=>({ph:r.points_home,pa:r.points_away}))});
+    if(snap!==last){last=snap;render(n,hist);}}catch(_){}}function loop(){fetchData().finally(()=>setTimeout(loop,1500));}
+  init({home:'HOME',away:'AWAY'});buildHead();loop();
 })();
 </script>
 </body>
 </html>
+
+
