@@ -3,15 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pista 3D – OBS (muchas paletas)</title>
+<title>Pista 3D – OBS (paleta #52 + recuadro)</title>
 <style>
   :root{
-    --court-top:#0E7490;
-    --court-mid:#2DD4BF;
-    --court-bot:#FDE68A;
-    --heat-low:#22C55E;
-    --heat-mid:#F59E0B;
-    --heat-high:#DC2626;
+    --court-top:#0E7490; --court-mid:#2DD4BF; --court-bot:#FDE68A;
+    --heat-low:#22C55E;  --heat-mid:#F59E0B;  --heat-high:#DC2626;
     --line:#ffffff;
   }
   html,body{margin:0;height:100%;background:transparent}
@@ -20,71 +16,56 @@
 </style>
 </head>
 <body>
-  <div class="stage">
-    <canvas id="court"></canvas>
-  </div>
+  <div class="stage"><canvas id="court"></canvas></div>
 
 <script>
 (() => {
-  // ========= Parámetros URL =========
-  const SHEET_ID = "1dlu41kVti3-wnKV-dRxVJqqDK5mvYUBFA0W70Ao9OdQ";
-  const DEFAULT_SHEET_NAME = "Heatmap"; // set | side | zone | team | count
+  // ===== Parámetros URL =====
   const p = new URLSearchParams(location.search);
-  let currentSet = Number(p.get('set')||1);
-  const SHEET_NAME = (p.get('sheet')||DEFAULT_SHEET_NAME);
-  const GID = p.get('gid')||'';
-  const REFRESH_SEC = Number(p.get('refresh')||0);
+  const SHEET_ID   = "1dlu41kVti3-wnKV-dRxVJqqDK5mvYUBFA0W70Ao9OdQ";
+  const SHEET_NAME = p.get('sheet') || "Heatmap";
+  const GID        = p.get('gid') || '';
+  let currentSet   = Number(p.get('set')||1);
+  const REFRESH_SEC= Number(p.get('refresh')||0);
+  const GEN_COUNT  = Math.max(8, Number(p.get('palettes')||64));
+  const START_PAL  = Number(p.get('pal')||0);   // 1-index → si lo pasas, manda sobre el arranque por defecto
+  let HUD_ON       = (p.get('hud')||'1')!=='0';
+  // Recuadro (container) – parámetros
+  const FRAME_PAD     = Number(p.get('framePad')||24);      // padding base (ambos ejes)
+  const FRAME_PAD_SHORT = Number(p.get('framePadShort')||150); // extra vertical (lados cortos)
+  const FRAME_RADIUS  = Number(p.get('frameRadius')||14);   // radio esquinas
+  const FRAME_FILL    = p.get('frameFill')   || 'rgba(20,22,26,0.18)'; // gris discreto, muy transparente
+  const FRAME_STROKE  = p.get('frameStroke') || 'rgba(255,255,255,0.10)'; // borde sutil
 
-  // ========= Cámara =========
+
+  // ===== Cámara =====
   let YAW_DEG=90, ELEV_DEG=30, DIST=14, FOV=55; // animación 90→80
   const FIT=true, PADPX=20;
 
-  // ========= Geometría =========
+  // ===== Geometría =====
   const COURT_W=18, COURT_H=9, NET_H=2.43;
 
-  // ========= Canvas =========
+  // ===== Canvas =====
   const canvas = document.getElementById("court");
   const ctx = canvas.getContext("2d");
 
-  // ========= Utilidades de color =========
+  // ===== Utils =====
   const lerp=(a,b,t)=>a+(b-a)*t;
-  function hslToHex(h,s,l){
-    s/=100; l/=100;
-    const c=(1-Math.abs(2*l-1))*s;
-    const x=c*(1-Math.abs((h/60)%2-1));
-    const m=l-c/2;
+  function hslToHex(h,s,l){s/=100;l/=100;const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;
     let r=0,g=0,b=0;
-    if (0<=h&&h<60){r=c;g=x;b=0;}
-    else if (60<=h&&h<120){r=x;g=c;b=0;}
-    else if (120<=h&&h<180){r=0;g=c;b=x;}
-    else if (180<=h&&h<240){r=0;g=x;b=c;}
-    else if (240<=h&&h<300){r=x;g=0;b=c;}
-    else {r=c;g=0;b=x;}
-    const R=Math.round((r+m)*255).toString(16).padStart(2,'0');
-    const G=Math.round((g+m)*255).toString(16).padStart(2,'0');
-    const B=Math.round((b+m)*255).toString(16).padStart(2,'0');
+    if (0<=h&&h<60){r=c;g=x;b=0;} else if (60<=h&&h<120){r=x;g=c;b=0;} else if (120<=h&&h<180){r=0;g=c;b=x;}
+    else if (180<=h&&h<240){r=0;g=x;b=c;} else if (240<=h&&h<300){r=x;g=0;b=c;} else {r=c;g=0;b=x;}
+    const R=Math.round((r+m)*255).toString(16).padStart(2,'0'), G=Math.round((g+m)*255).toString(16).padStart(2,'0'), B=Math.round((b+m)*255).toString(16).padStart(2,'0');
     return `#${R}${G}${B}`.toUpperCase();
   }
-  function hexToRgb(h){
-    const x=h.startsWith('#')?h.slice(1):h;
-    const v=parseInt(x,16);
-    if (x.length!==6||Number.isNaN(v)) return {r:0,g:0,b:0};
-    return {r:(v>>16)&255,g:(v>>8)&255,b:v&255};
-  }
-  function mix2(h1,h2,t,a=1){
-    const c1=hexToRgb(h1), c2=hexToRgb(h2);
-    const r=Math.round(lerp(c1.r,c2.r,t)), g=Math.round(lerp(c1.g,c2.g,t)), b=Math.round(lerp(c1.b,c2.b,t));
-    return `rgba(${r},${g},${b},${a})`;
-  }
-  function mixHeat(low,mid,high,t,a=0.85){
-    if (t<=0) return mix2(low,low,0,a);
-    if (t>=1) return mix2(high,high,0,a);
-    if (t<0.5) return mix2(low,mid,t/0.5,a);
-    return mix2(mid,high,(t-0.5)/0.5,a);
-  }
+  function hexToRgb(h){const x=h.startsWith('#')?h.slice(1):h, v=parseInt(x,16); if(x.length!==6||Number.isNaN(v)) return {r:0,g:0,b:0}; return {r:(v>>16)&255,g:(v>>8)&255,b:v&255};}
+  function rgbaFromHex(hex, a=1){const {r,g,b}=hexToRgb(hex); return `rgba(${r},${g},${b},${a})`;}
+  function darkenHex(hex, amt=0.25, alpha=1){const {r,g,b}=hexToRgb(hex); const k=Math.max(0,Math.min(1,1-amt)); return `rgba(${Math.round(r*k)},${Math.round(g*k)},${Math.round(b*k)},${alpha})`;}
+  function mix2(h1,h2,t,a=1){const c1=hexToRgb(h1),c2=hexToRgb(h2);const r=Math.round(lerp(c1.r,c2.r,t)),g=Math.round(lerp(c1.g,c2.g,t)),b=Math.round(lerp(c1.b,c2.b,t));return `rgba(${r},${g},${b},${a})`;}
+  function mixHeat(low,mid,high,t,a=0.85){if(t<=0)return mix2(low,low,0,a); if(t>=1)return mix2(high,high,0,a); return t<.5?mix2(low,mid,t/.5,a):mix2(mid,high,(t-.5)/.5,a);}
+  const lerpPoint=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
 
-  // ========= Paletas (curadas + generadas) =========
-  // Curadas (10)
+  // ===== Paletas (curadas + generadas HSL) =====
   const CURATED = [
     {name:"Teal Sand", court:{top:"#0E7490",mid:"#2DD4BF",bot:"#FDE68A"}, heat:{low:"#22C55E",mid:"#F59E0B",high:"#DC2626"}},
     {name:"Slate Copper", court:{top:"#334155",mid:"#64748B",bot:"#EED9C4"}, heat:{low:"#06B6D4",mid:"#F59E0B",high:"#B91C1C"}},
@@ -97,8 +78,6 @@
     {name:"Smoke Rose", court:{top:"#1F2937",mid:"#9CA3AF",bot:"#FECACA"}, heat:{low:"#22D3EE",mid:"#FB923C",high:"#B91C1C"}},
     {name:"Indigo Papaya", court:{top:"#1E1B4B",mid:"#6366F1",bot:"#FFDAB9"}, heat:{low:"#34D399",mid:"#F59E0B",high:"#EF4444"}},
   ];
-
-  // Heat escalas (seleccionará cíclicamente una para cada generada)
   const HEAT_SCALES = [
     {name:"Teal→Amber→Red", low:"#14B8A6", mid:"#F59E0B", high:"#EF4444"},
     {name:"Blue→Gold→Crimson", low:"#0EA5E9", mid:"#FBBF24", high:"#DC2626"},
@@ -106,35 +85,27 @@
     {name:"Green→Lime→Orange", low:"#22C55E", mid:"#84CC16", high:"#F59E0B"},
     {name:"Cyan→Purple→Magenta", low:"#06B6D4", mid:"#7C3AED", high:"#DB2777"},
   ];
-
-  // Generación programática de muchas paletas de pista a partir de HSL
-  function generateCourt(h){
-    // top = oscuro saturado, mid = medio, bot = claro cálido (h + 15°)
-    return {
-      top: hslToHex(h, 65, 35),
-      mid: hslToHex(h, 70, 55),
-      bot: hslToHex((h+15)%360, 85, 76)
-    };
-  }
-  function generateManyPalettes(n=32){ // <-- sube este número si quieres todavía más
+  function generateCourt(h){ return { top:hslToHex(h,65,35), mid:hslToHex(h,70,55), bot:hslToHex((h+15)%360,85,76) }; }
+  function generateManyPalettes(n){
     const res=[];
-    for (let i=0;i<n;i++){
-      const h = Math.round((360/n)*i);           // hue girando la rueda
-      const court = generateCourt(h);
-      const hs = HEAT_SCALES[i % HEAT_SCALES.length];
-      res.push({
-        name:`HSL ${String(h).padStart(3,' ')}° · ${hs.name}`,
-        court, heat:{low:hs.low, mid:hs.mid, high:hs.high}
-      });
+    for(let i=0;i<n;i++){
+      const h=Math.round((360/n)*i);
+      const court=generateCourt(h);
+      const hs=HEAT_SCALES[i%HEAT_SCALES.length];
+      res.push({ name:`HSL ${h}° · ${hs.name}`, court, heat:{low:hs.low, mid:hs.mid, high:hs.high} });
     }
     return res;
   }
-
-  const PALETTES = [...CURATED, ...generateManyPalettes(32)]; // total ~42
+  const PALETTES=[...CURATED, ...generateManyPalettes(GEN_COUNT)];
   let paletteIdx = 0;
 
+  // Arranque SIEMPRE en paleta #52 (1-index) salvo que ?pal= indique otra
+  const defaultStart = 52; // ← lo que pides
+  paletteIdx = (START_PAL>0 && START_PAL<=PALETTES.length) ? (START_PAL-1) :
+               (defaultStart<=PALETTES.length ? defaultStart-1 : 0);
+
   function applyPalette(pal){
-    const r = document.documentElement.style;
+    const r=document.documentElement.style;
     r.setProperty('--court-top', pal.court.top);
     r.setProperty('--court-mid', pal.court.mid);
     r.setProperty('--court-bot', pal.court.bot);
@@ -144,158 +115,162 @@
   }
   applyPalette(PALETTES[paletteIdx]);
 
-  // ========= GViz (JSONP) =========
+  // ===== GViz (JSONP) =====
   let baseURL=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
   if (SHEET_NAME) baseURL+=`&sheet=${encodeURIComponent(SHEET_NAME)}`;
   else if (GID)   baseURL+=`&gid=${encodeURIComponent(GID)}`;
-
   window.google=window.google||{}; google.visualization=google.visualization||{};
   google.visualization.Query=google.visualization.Query||{};
-
-  function injectScript(){
-    const s=document.createElement("script"); s.src=baseURL+`&t=${Date.now()}`; s.async=true;
-    if (window.__gvizScript) document.head.removeChild(window.__gvizScript);
-    window.__gvizScript=s; document.head.appendChild(s);
-  }
+  function injectScript(){ const s=document.createElement("script"); s.src=baseURL+`&t=${Date.now()}`; s.async=true;
+    if (window.__gvizScript) document.head.removeChild(window.__gvizScript); window.__gvizScript=s; document.head.appendChild(s); }
   function rowsToObjects(table){
     const cols=table.cols.map(c=>(c.label||"").toLowerCase().trim());
-    return table.rows.map(r=>{
-      const o={}; r.c.forEach((cell,i)=>o[cols[i]]=cell?cell.v:null);
-      o.set=Number(o.set); o.side=(o.side||"").toLowerCase();
-      o.zone=Number(o.zone); o.team=o.team||"";
-      o.count=o.count!=null?Number(o.count):1;
-      return o;
-    });
+    return table.rows.map(r=>{const o={}; r.c.forEach((cell,i)=>o[cols[i]]=cell?cell.v:null);
+      o.set=Number(o.set); o.side=(o.side||"").toLowerCase(); o.zone=Number(o.zone); o.team=o.team||""; o.count=o.count!=null?Number(o.count):1; return o;});
   }
   google.visualization.Query.setResponse=function(resp){
-    try{
-      if(resp.status && resp.status!=="ok") throw new Error(resp.status);
-      const all=rowsToObjects(resp.table);
-      const agg=aggregateForSet(all,currentSet);
-      render(agg);
+    try{ if(resp.status && resp.status!=="ok") throw new Error(resp.status);
+      const all=rowsToObjects(resp.table); const agg=aggregateForSet(all,currentSet); render(agg);
     }catch(e){ console.error("Error GViz:", e); }
   };
   function load(){ injectScript(); }
   if (REFRESH_SEC>0) setInterval(load, REFRESH_SEC*1000);
 
-  // ========= Datos / agregación =========
-  const gridMap=[
-    [[5,'home'],[4,'home'],[2,'away'],[1,'away']],
-    [[6,'home'],[3,'home'],[3,'away'],[6,'away']],
-    [[1,'home'],[2,'home'],[4,'away'],[5,'away']],
-  ];
+  // ===== Datos / agregación =====
+  const gridMap=[ [[5,'home'],[4,'home'],[2,'away'],[1,'away']], [[6,'home'],[3,'home'],[3,'away'],[6,'away']], [[1,'home'],[2,'home'],[4,'away'],[5,'away']] ];
   function aggregateForSet(rows,setN){
     const setRows=rows.filter(r=>r.set===setN);
     const countsHalf={home:Array(6).fill(0),away:Array(6).fill(0)};
-    for(const r of setRows){
-      if(r.side==='home'||r.side==='away'){
-        const z=Math.max(1,Math.min(6,r.zone));
-        countsHalf[r.side][z-1]+=isFinite(r.count)?r.count:1;
-      }
-    }
+    for(const r of setRows){ if(r.side==='home'||r.side==='away'){ const z=Math.max(1,Math.min(6,r.zone)); countsHalf[r.side][z-1]+=isFinite(r.count)?r.count:1; } }
     return {countsHalf};
   }
 
-  // ========= Proyección / helpers =========
+  // ===== Proyección =====
   function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
   function wrapDeg(d){d%=360;if(d<0)d+=360;return d}
   const deg2rad=d=>d*Math.PI/180;
-  function eyeFromParams(){
-    const yaw=deg2rad(YAW_DEG), elev=deg2rad(ELEV_DEG), r=Math.max(0.1,DIST);
-    const cosE=Math.cos(elev), sinE=Math.sin(elev);
-    return {x:r*cosE*Math.cos(yaw), y:r*cosE*Math.sin(yaw), z:r*sinE};
-  }
+  function eyeFromParams(){ const yaw=deg2rad(YAW_DEG), elev=deg2rad(ELEV_DEG), r=Math.max(0.1,DIST);
+    const cosE=Math.cos(elev), sinE=Math.sin(elev); return {x:r*cosE*Math.cos(yaw), y:r*cosE*Math.sin(yaw), z:r*sinE}; }
   function lookAt(eye,target={x:0,y:0,z:0},up={x:0,y:0,z:1}){
-    const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z});
-    const cross=(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x});
-    const norm=v=>{const L=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/L,y:v.y/L,z:v.z/L}};
-    const zc=norm(sub(target,eye)), xc=norm(cross(zc,up)), yc=cross(xc,zc);
-    return {eye, xc, yc, zc};
+    const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}); const cross=(a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}); const norm=v=>{const L=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/L,y:v.y/L,z:v.z/L}};
+    const zc=norm(sub(target,eye)), xc=norm(cross(zc,up)), yc=cross(xc,zc); return {eye, xc, yc, zc};
   }
-  function worldToCam(p,cam){
-    const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z});
-    const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z;
-    const pe=sub(p,cam.eye);
-    return {x:dot(pe,cam.xc), y:dot(pe,cam.yc), z:dot(pe,cam.zc)};
-  }
-  function projectCam(pc,f){const inv=(pc.z<=0?1e-6:1/pc.z);return{x:pc.x*f*inv,y:pc.y*f*inv,z:pc.z};}
+  function worldToCam(p,cam){ const sub=(a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}); const dot=(a,b)=>a.x*b.x+a.y*b.y+a.z*b.z; const pe=sub(p,cam.eye); return {x:dot(pe,cam.xc), y:dot(pe,cam.yc), z:dot(pe,cam.zc)}; }
+  function projectCam(pc,f){const inv=(pc.z<=0?1e-6:1/pc.z); return {x:pc.x*f*inv, y:pc.y*f*inv, z:pc.z};}
   function computeFitFocal(cam,w,h,f0,pad){
-    const corners=[{x:-COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y: COURT_H/2,z:0},
-                   {x: COURT_W/2,y:-COURT_H/2,z:0},{x:-COURT_W/2,y:-COURT_H/2,z:0}]
-                   .map(p=>projectCam(worldToCam(p,cam),1));
+    const corners=[{x:-COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y:-COURT_H/2,z:0},{x:-COURT_W/2,y:-COURT_H/2,z:0}]
+      .map(p=>projectCam(worldToCam(p,cam),1));
     let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
     for(const q of corners){minX=Math.min(minX,q.x);maxX=Math.max(maxX,q.x);minY=Math.min(minY,q.y);maxY=Math.max(maxY,q.y);}
-    const halfW=(w/2-pad),halfH=(h/2-pad);
-    const needFx=halfW/Math.max(Math.abs(minX),Math.abs(maxX));
-    const needFy=halfH/Math.max(Math.abs(minY),Math.abs(maxY));
+    const halfW=(w/2-pad),halfH=(h/2-pad); const needFx=halfW/Math.max(Math.abs(minX),Math.abs(maxX)); const needFy=halfH/Math.max(Math.abs(minY),Math.abs(maxY));
     return Math.min(Math.max(1,Math.min(needFx,needFy)), f0*10)*0.98;
   }
-  const lerpPoint=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
 
-  // ========= Pista =========
+  // ===== Fondo: recuadro semitransparente que contiene el campo =====
+  function roundedRectPath(x,y,w,h,r){
+    const rr=Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x,   y+h, rr);
+    ctx.arcTo(x,   y+h, x,   y,   rr);
+    ctx.arcTo(x,   y,   x+w, y,   rr);
+    ctx.closePath();
+  }
+function roundedRectPath(x,y,w,h,r){
+  const rr=Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+rr, y);
+  ctx.arcTo(x+w, y,   x+w, y+h, rr);
+  ctx.arcTo(x+w, y+h, x,   y+h, rr);
+  ctx.arcTo(x,   y+h, x,   y,   rr);
+  ctx.arcTo(x,   y,   x+w, y,   rr);
+  ctx.closePath();
+}
+
+function drawContainerFrame(poly, dpr){
+  // bbox del top de la pista
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  for(const p of poly){ if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y; }
+
+  // Padding asimétrico: más altura en los lados cortos (arriba/abajo)
+  const padX = FRAME_PAD * dpr;
+  const padY = (FRAME_PAD + FRAME_PAD_SHORT) * dpr; // ← extra vertical
+
+  const x = minX - padX;
+  const y = minY - padY;
+  const w = (maxX - minX) + padX*2;
+  const h = (maxY - minY) + padY*2;
+
+  ctx.save();
+  roundedRectPath(x,y,w,h, FRAME_RADIUS * dpr);
+  ctx.fillStyle   = FRAME_FILL;   // muy transparente, deja ver el vídeo de debajo
+  ctx.fill();
+  ctx.lineWidth   = 2 * dpr;
+  ctx.strokeStyle = FRAME_STROKE; // borde sutil
+  ctx.stroke();
+  ctx.restore();
+}
+
+
+  // ===== Dibujo pista/heatmap =====
   function courtGradient(ctx,topY,botY){
     const g=ctx.createLinearGradient(0,topY,0,botY);
     const top=getComputedStyle(document.documentElement).getPropertyValue('--court-top').trim();
     const mid=getComputedStyle(document.documentElement).getPropertyValue('--court-mid').trim();
     const bot=getComputedStyle(document.documentElement).getPropertyValue('--court-bot').trim();
-    g.addColorStop(0, top); g.addColorStop(0.5, mid); g.addColorStop(1, bot);
-    return g;
+    g.addColorStop(0, top); g.addColorStop(0.5, mid); g.addColorStop(1, bot); return g;
+  }
+
+  // Prisma coloreado según paleta
+  function hexBlend(h1,h2,t){
+    const a=hexToRgb(h1), b=hexToRgb(h2);
+    const r=Math.round(lerp(a.r,b.r,t)), g=Math.round(lerp(a.g,b.g,t)), bb=Math.round(lerp(a.b,b.b,t));
+    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${bb.toString(16).padStart(2,'0')}`.toUpperCase();
   }
   function drawCourtPrism(cam, f, sx, sy, dpr){
-    const depth = 0.55;
-    const topWorld = [
-      {x:-COURT_W/2, y: COURT_H/2, z:0},
-      {x: COURT_W/2, y: COURT_H/2, z:0},
-      {x: COURT_W/2, y:-COURT_H/2, z:0},
-      {x:-COURT_W/2, y:-COURT_H/2, z:0},
-    ];
-    const botWorld = topWorld.map(p => ({x:p.x, y:p.y, z:p.z - depth}));
-    const proj = (pw) => { const pr=projectCam(worldToCam(pw,cam),f); return {x:sx+pr.x, y:sy-pr.y}; };
-    const topP = topWorld.map(proj), botP = botWorld.map(proj);
+    const depth=.55;
+    const topWorld=[{x:-COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y:-COURT_H/2,z:0},{x:-COURT_W/2,y:-COURT_H/2,z:0}];
+    const botWorld=topWorld.map(p=>({x:p.x,y:p.y,z:-depth}));
+    const proj=pw=>{const pr=projectCam(worldToCam(pw,cam),f); return {x:sx+pr.x,y:sy-pr.y}};
+    const topP=topWorld.map(proj), botP=botWorld.map(proj);
 
-    // Caras laterales y base
-    ctx.fillStyle='rgba(0,0,0,.22)';
+    const cTop = getComputedStyle(document.documentElement).getPropertyValue('--court-top').trim() || '#000000';
+    const cMid = getComputedStyle(document.documentElement).getPropertyValue('--court-mid').trim() || '#000000';
+    const cBot = getComputedStyle(document.documentElement).getPropertyValue('--court-bot').trim() || '#000000';
+
+    const sideFace = darkenHex(hexBlend(cTop, cMid, 0.5), 0.30, 0.95);
+    const baseFace = darkenHex(cBot, 0.55, 0.95);
+
+    ctx.fillStyle=sideFace;
     for(let i=0;i<4;i++){
       const a=topP[i], b=topP[(i+1)%4], c=botP[(i+1)%4], d=botP[i];
       ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.lineTo(c.x,c.y); ctx.lineTo(d.x,d.y); ctx.closePath(); ctx.fill();
     }
-    ctx.fillStyle='rgba(0,0,0,.40)';
+    ctx.fillStyle=baseFace;
     ctx.beginPath(); ctx.moveTo(botP[0].x,botP[0].y); for(let i=1;i<4;i++) ctx.lineTo(botP[i].x,botP[i].y); ctx.closePath(); ctx.fill();
-    return {topP};
   }
+
   function drawCourtLines(cam,f,sx,sy,dpr){
-    const drawX=(X)=>{
-      const a0={x:X,y:-COURT_H/2,z:0}, a1={x:X,y:COURT_H/2,z:0};
-      const p0=projectCam(worldToCam(a0,cam),f), p1=projectCam(worldToCam(a1,cam),f);
+    const drawX=X=>{const a0={x:X,y:-COURT_H/2,z:0},a1={x:X,y:COURT_H/2,z:0}; const p0=projectCam(worldToCam(a0,cam),f), p1=projectCam(worldToCam(a1,cam),f);
       ctx.lineWidth=2*dpr; ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'#fff';
-      ctx.beginPath(); ctx.moveTo(sx+p0.x, sy-p0.y); ctx.lineTo(sx+p1.x, sy-p1.y); ctx.stroke();
-    };
+      ctx.beginPath(); ctx.moveTo(sx+p0.x, sy-p0.y); ctx.lineTo(sx+p1.x, sy-p1.y); ctx.stroke(); };
     drawX(-3); drawX(3);
   }
   function drawNetWithPosts(cam,f,sx,sy,dpr){
-    const BL=projectCam(worldToCam({x:0,y:-COURT_H/2,z:0},cam),f);
-    const BR=projectCam(worldToCam({x:0,y: COURT_H/2,z:0},cam),f);
-    const TL=projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_H},cam),f);
-    const TR=projectCam(worldToCam({x:0,y: COURT_H/2,z:NET_H},cam),f);
+    const BL=projectCam(worldToCam({x:0,y:-COURT_H/2,z:0},cam),f), BR=projectCam(worldToCam({x:0,y: COURT_H/2,z:0},cam),f),
+          TL=projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_H},cam),f), TR=projectCam(worldToCam({x:0,y: COURT_H/2,z:NET_H},cam),f);
     const pts=[{x:sx+BL.x,y:sy-BL.y},{x:sx+BR.x,y:sy-BR.y},{x:sx+TR.x,y:sy-TR.y},{x:sx+TL.x,y:sy-TL.y}];
-
     ctx.save();
     ctx.globalAlpha=.9; ctx.fillStyle='rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); ctx.lineTo(pts[1].x,pts[1].y);
-    ctx.lineTo(pts[2].x,pts[2].y); ctx.lineTo(pts[3].x,pts[3].y); ctx.closePath(); ctx.fill();
-
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); ctx.lineTo(pts[1].x,pts[1].y); ctx.lineTo(pts[2].x,pts[2].y); ctx.lineTo(pts[3].x,pts[3].y); ctx.closePath(); ctx.fill();
     ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1*dpr;
     const steps=12;
-    for(let i=0;i<=steps;i++){
-      const t=i/steps, b=lerpPoint(pts[0],pts[1],t), u=lerpPoint(pts[3],pts[2],t);
-      ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(u.x,u.y); ctx.stroke();
-    }
-
-    ctx.strokeStyle='rgba(255,255,255,.98)'; ctx.lineWidth=5*dpr;
-    ctx.beginPath(); ctx.moveTo(pts[3].x,pts[3].y); ctx.lineTo(pts[2].x,pts[2].y); ctx.stroke();
+    for(let i=0;i<=steps;i++){const t=i/steps,b=lerpPoint(pts[0],pts[1],t),u=lerpPoint(pts[3],pts[2],t); ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(u.x,u.y); ctx.stroke();}
+    ctx.strokeStyle='rgba(255,255,255,.98)'; ctx.lineWidth=5*dpr; ctx.beginPath(); ctx.moveTo(pts[3].x,pts[3].y); ctx.lineTo(pts[2].x,pts[2].y); ctx.stroke();
     ctx.restore();
 
-    const poleOffset=0.35, poleRadius=0.07;
+    const poleOffset=0.35,poleRadius=0.07;
     const Lb={x:0,y:-COURT_H/2-poleOffset,z:0}, Lt={x:0,y:-COURT_H/2-poleOffset,z:NET_H+0.4};
     const Rb={x:0,y: COURT_H/2+poleOffset,z:0}, Rt={x:0,y: COURT_H/2+poleOffset,z:NET_H+0.4};
     drawPole(Lb,Lt,poleRadius,cam,f,sx,sy,dpr); drawPole(Rb,Rt,poleRadius,cam,f,sx,sy,dpr);
@@ -310,196 +285,124 @@
     ctx.beginPath(); ctx.moveTo(sx+t.x-pxR*0.6, sy-t.y); ctx.lineTo(sx+t.x+pxR*0.6, sy-t.y); ctx.stroke(); ctx.restore();
   }
 
-  // ========= Heatmap =========
+  // Heatmap (con %)
   function drawHeatmap(countsHalf, cam, f, sx, sy, dpr){
     const cLow=getComputedStyle(document.documentElement).getPropertyValue('--heat-low').trim();
     const cMid=getComputedStyle(document.documentElement).getPropertyValue('--heat-mid').trim();
     const cHigh=getComputedStyle(document.documentElement).getPropertyValue('--heat-high').trim();
-    const totHome=countsHalf.home.reduce((a,b)=>a+b,0);
-    const totAway=countsHalf.away.reduce((a,b)=>a+b,0);
-
+    const totHome=countsHalf.home.reduce((a,b)=>a+b,0), totAway=countsHalf.away.reduce((a,b)=>a+b,0);
     for(let r=0;r<3;r++){
-      const v0=r/3, v1=(r+1)/3;
       for(let c=0;c<4;c++){
-        const u0=c/4, u1=(c+1)/4;
-        const quadWorld=[
-          {x:(u0-.5)*COURT_W, y:(v0-.5)*COURT_H, z:0},
-          {x:(u1-.5)*COURT_W, y:(v0-.5)*COURT_H, z:0},
-          {x:(u1-.5)*COURT_W, y:(v1-.5)*COURT_H, z:0},
-          {x:(u0-.5)*COURT_W, y:(v1-.5)*COURT_H, z:0},
-        ];
+        const u0=c/4,u1=(c+1)/4,v0=r/3,v1=(r+1)/3;
+        const quadWorld=[{x:(u0-.5)*COURT_W,y:(v0-.5)*COURT_H,z:0},{x:(u1-.5)*COURT_W,y:(v0-.5)*COURT_H,z:0},{x:(u1-.5)*COURT_W,y:(v1-.5)*COURT_H,z:0},{x:(u0-.5)*COURT_W,y:(v1-.5)*COURT_H,z:0}];
         const P=quadWorld.map(pw=>{const pr=projectCam(worldToCam(pw,cam),f);return{x:sx+pr.x,y:sy-pr.y};});
-
-        const [zone,side]=gridMap[r][c];
-        const val=countsHalf[side][zone-1]||0;
-        const tot=side==='home'?totHome:totAway;
-        const tHeat=tot>0?Math.min(1,val/tot):0;
-
-        const inset=2*dpr;
-        const cx=(P[0].x+P[1].x+P[2].x+P[3].x)/4;
-        const cy=(P[0].y+P[1].y+P[2].y+P[3].y)/4;
-        const Q=P.map(pt=>{
-          const dx=pt.x-cx, dy=pt.y-cy, L=Math.hypot(dx,dy)||1;
-          const k=L-inset; return {x:cx+dx*(k/L), y:cy+dy*(k/L)};
-        });
-
+        const [zone,side]=gridMap[r][c]; const val=countsHalf[side][zone-1]||0; const tot=side==='home'?totHome:totAway; const tHeat=tot>0?Math.min(1,val/tot):0;
+        const inset=2*dpr; const cx=(P[0].x+P[1].x+P[2].x+P[3].x)/4, cy=(P[0].y+P[1].y+P[2].y+P[3].y)/4;
+        const Q=P.map(pt=>{const dx=pt.x-cx,dy=pt.y-cy,L=Math.hypot(dx,dy)||1;const k=L-inset;return {x:cx+dx*(k/L),y:cy+dy*(k/L)};});
         ctx.beginPath(); ctx.moveTo(Q[0].x,Q[0].y); for(let i=1;i<4;i++) ctx.lineTo(Q[i].x,Q[i].y); ctx.closePath();
-        ctx.fillStyle=mixHeat(cLow,cMid,cHigh,tHeat, side==='home'?0.88:0.82);
-        ctx.fill();
-
-        if (val>0){
-          const pct=tot>0?Math.round((val/tot)*100):0;
-          if (pct>0){
-            ctx.save();
-            ctx.font=`${Math.round(16*dpr)}px Inter,system-ui,Arial`;
-            ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.shadowColor='rgba(0,0,0,.45)';
-            ctx.shadowBlur=6*dpr;
-            ctx.fillStyle='rgba(255,255,255,.97)';
-            ctx.fillText(`${pct}%`, cx, cy);
-            ctx.restore();
-          }
-        }
+        ctx.fillStyle=mixHeat(cLow,cMid,cHigh,tHeat, side==='home'?0.88:0.82); ctx.fill(); // sólido (no transparente) sobre la pista
+        if (val>0){ const pct=tot>0?Math.round((val/tot)*100):0; if (pct>0){ ctx.save(); ctx.font=`${Math.round(16*dpr)}px Inter,system-ui,Arial`;
+            ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=6*dpr; ctx.fillStyle='rgba(255,255,255,.97)'; ctx.fillText(`${pct}%`, cx, cy); ctx.restore(); } }
       }
     }
   }
 
-  // ========= HUD de paleta (pruebas en pantalla) =========
+  // ===== HUD de paleta =====
   function drawPaletteHUD(dpr){
-    const pal = PALETTES[paletteIdx];
-    const lines = [
-      `Paleta ${paletteIdx+1}/${PALETTES.length}: ${pal.name}`,
-      `Court top:  ${pal.court.top}`,
-      `Court mid:  ${pal.court.mid}`,
-      `Court bot:  ${pal.court.bot}`,
-      `Heat low:   ${pal.heat.low}`,
-      `Heat mid:   ${pal.heat.mid}`,
-      `Heat high:  ${pal.heat.high}`
-    ];
-    const pad = 8*dpr, sw=14*dpr, gap=6*dpr;
-    ctx.save();
-    ctx.font = `${12*dpr}px Inter,system-ui,Arial`;
-    const lineH = 16*dpr;
-    const textW = 260*dpr, w = textW, h = (lines.length*lineH) + pad*2;
-    ctx.globalAlpha=1;
-    ctx.fillStyle = 'rgba(0,0,0,.42)';
-    ctx.fillRect(10*dpr, 10*dpr, w, h);
-    ctx.fillStyle = '#fff';
-    ctx.textBaseline = 'top';
-    lines.forEach((t,i)=>{
-      ctx.fillText(t, 10*dpr+pad+sw+gap, 10*dpr+pad+i*lineH);
-    });
+    if (!HUD_ON) return;
+    const pal=PALETTES[paletteIdx];
+    const lines=[`Paleta ${paletteIdx+1}/${PALETTES.length}: ${pal.name}`,
+      `Court top:  ${pal.court.top}`,`Court mid:  ${pal.court.mid}`,`Court bot:  ${pal.court.bot}`,
+      `Heat low:   ${pal.heat.low}`,`Heat mid:   ${pal.heat.mid}`,`Heat high:  ${pal.heat.high}`];
+    const pad=8*dpr, sw=14*dpr, gap=6*dpr, lineH=16*dpr, w=280*dpr, h=(lines.length*lineH)+pad*2;
+    ctx.save(); ctx.globalAlpha=1; ctx.fillStyle='rgba(0,0,0,.42)'; ctx.fillRect(10*dpr,10*dpr,w,h);
+    ctx.fillStyle='#fff'; ctx.font=`${12*dpr}px Inter,system-ui,Arial`; ctx.textBaseline='top';
+    lines.forEach((t,i)=>ctx.fillText(t,10*dpr+pad+sw+gap,10*dpr+pad+i*lineH));
     const cols=[pal.court.top,pal.court.mid,pal.court.bot,pal.heat.low,pal.heat.mid,pal.heat.high];
-    cols.forEach((c,i)=>{
-      const y = 10*dpr+pad+(i+1)*lineH - lineH;
-      ctx.fillStyle=c; ctx.fillRect(10*dpr+pad, y+3*dpr, sw, sw);
-      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1*dpr;
-      ctx.strokeRect(10*dpr+pad, y+3*dpr, sw, sw);
-    });
+    cols.forEach((c,i)=>{const y=10*dpr+pad+(i+1)*lineH-lineH; ctx.fillStyle=c; ctx.fillRect(10*dpr+pad,y+3*dpr,sw,sw);
+      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1*dpr; ctx.strokeRect(10*dpr+pad,y+3*dpr,sw,sw);});
     ctx.restore();
   }
 
-  // ========= Render =========
+  // ===== Render =====
   let lastAgg={countsHalf:{home:Array(6).fill(0),away:Array(6).fill(0)}};
-
   function drawScene(countsHalf){
-    const dpr=Math.max(1,window.devicePixelRatio||1);
-    const w=canvas.clientWidth*dpr, h=canvas.clientHeight*dpr;
+    const dpr=Math.max(1,window.devicePixelRatio||1), w=canvas.clientWidth*dpr, h=canvas.clientHeight*dpr;
     canvas.width=w; canvas.height=h; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,w,h);
-
-    const eye=eyeFromParams(), cam=lookAt(eye,{x:0,y:0,z:0});
-    const f0=(h/2)/Math.tan((FOV*Math.PI/180)/2), pad=PADPX*dpr;
+    const eye=eyeFromParams(), cam=lookAt(eye,{x:0,y:0,z:0}); const f0=(h/2)/Math.tan((FOV*Math.PI/180)/2), pad=PADPX*dpr;
     const f=FIT?computeFitFocal(cam,w,h,f0,pad):f0;
 
-    const rectProj=[{x:-COURT_W/2,y:COURT_H/2,z:0},{x: COURT_W/2,y: COURT_H/2,z:0},
-                    {x: COURT_W/2,y:-COURT_H/2,z:0},{x:-COURT_W/2,y:-COURT_H/2,z:0}]
-                   .map(p=>projectCam(worldToCam(p,cam),f));
-    let cx=0,cy=0; rectProj.forEach(q=>{cx+=q.x;cy+=q.y;}); cx/=4; cy/=4;
-    const sx=w/2 - cx, sy=h/2 + cy;
+    const rectProj=[{x:-COURT_W/2,y:COURT_H/2,z:0},{x: COURT_W/2,y: COURT_H/2,z:0},{x: COURT_W/2,y:-COURT_H/2,z:0},{x:-COURT_W/2,y:-COURT_H/2,z:0}].map(p=>projectCam(worldToCam(p,cam),f));
+    let cx=0,cy=0; rectProj.forEach(q=>{cx+=q.x;cy+=q.y;}); cx/=4; cy/=4; const sx=w/2-cx, sy=h/2+cy;
 
-    drawCourtPrism(cam,f,sx,sy,dpr);
-
+    // Polígono en pantalla del top de la pista
     const poly=rectProj.map(q=>({x:sx+q.x,y:sy-q.y}));
+
+    // 1) Recuadro semitransparente que contiene todo el campo (debajo de todo)
+    drawContainerFrame(poly, dpr);
+
+    // 2) Prisma + cara superior (sólido)
+    drawCourtPrism(cam,f,sx,sy,dpr);
     const topY=Math.min(poly[0].y,poly[1].y), botY=Math.max(poly[2].y,poly[3].y);
     const grad=courtGradient(ctx,topY,botY);
-    ctx.fillStyle=grad; ctx.beginPath();
-    ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y);
-    ctx.closePath(); ctx.fill();
+    ctx.fillStyle=grad; ctx.beginPath(); ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y); ctx.closePath(); ctx.fill();
 
+    // 3) Borde perimetral y líneas/red
     ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'#fff';
-    ctx.lineWidth=4*dpr; ctx.beginPath();
-    ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y);
-    ctx.closePath(); ctx.stroke();
+    ctx.lineWidth=4*dpr; ctx.beginPath(); ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y); ctx.closePath(); ctx.stroke();
 
     drawCourtLines(cam,f,sx,sy,dpr);
     drawNetWithPosts(cam,f,sx,sy,dpr);
+
+    // 4) Heatmap con % (opaco)
     drawHeatmap(countsHalf,cam,f,sx,sy,dpr);
 
-    drawPaletteHUD(dpr); // mostrar nombre y hex en pantalla
+    // 5) HUD de paleta (para pruebas)
+    drawPaletteHUD(dpr);
   }
-
   function render(agg){ lastAgg=agg; drawScene(agg.countsHalf); }
   function rerender(){ drawScene(lastAgg.countsHalf); }
 
-  // ========= Resize =========
-  const ro=new ResizeObserver(()=>rerender());
-  ro.observe(document.querySelector('.stage'));
+  // ===== Resize =====
+  const ro=new ResizeObserver(()=>rerender()); ro.observe(document.querySelector('.stage'));
 
-  // ========= Animación inicial =========
+  // ===== Animación inicial =====
   let __introDone=false;
   function animateIntroCamera(){
     if (__introDone) return; __introDone=true;
-    const startYaw=90, endYaw=80;
-    const startElev=30, endElev=30;
-    const startDist=14, endDist=14;
-    const duration=1600;
-    const t0=performance.now();
-    const ease=(t)=>t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-    function step(now){
-      const raw=(now-t0)/duration;
-      const t=Math.max(0,Math.min(1,raw));
-      const e=ease(t);
-      YAW_DEG=startYaw+(endYaw-startYaw)*e;
-      ELEV_DEG=startElev+(endElev-startElev)*e;
-      DIST=startDist+(endDist-startDist)*e;
-      rerender();
-      if (t<1) requestAnimationFrame(step);
-    }
+    const startYaw=90,endYaw=80,startElev=30,endElev=30,startDist=14,endDist=14,duration=1600,t0=performance.now();
+    const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+    function step(now){const raw=(now-t0)/duration,t=Math.max(0,Math.min(1,raw)),e=ease(t);
+      YAW_DEG=startYaw+(endYaw-startYaw)*e; ELEV_DEG=startElev+(endElev-startElev)*e; DIST=startDist+(endDist-startDist)*e;
+      rerender(); if(t<1) requestAnimationFrame(step);}
     requestAnimationFrame(step);
   }
 
-  // ========= Teclado =========
+  // ===== Teclado =====
   window.addEventListener("keydown",(e)=>{
     const k=e.key;
     // Cámara (opcional)
-    if (k==='ArrowLeft'){  YAW_DEG=wrapDeg(YAW_DEG-3); rerender(); e.preventDefault(); }
-    if (k==='ArrowRight'){ YAW_DEG=wrapDeg(YAW_DEG+3); rerender(); e.preventDefault(); }
-    if (k==='ArrowUp'){    ELEV_DEG=clamp(ELEV_DEG+2,0,85); rerender(); e.preventDefault(); }
-    if (k==='ArrowDown'){  ELEV_DEG=clamp(ELEV_DEG-2,0,85); rerender(); e.preventDefault(); }
-    if (k==='z'||k==='Z'){ DIST=clamp(DIST-0.5,4,40); rerender(); }
-    if (k==='x'||k==='X'){ DIST=clamp(DIST+0.5,4,40); rerender(); }
-    if (k==='m'||k==='M'){ FOV=clamp(FOV-1,30,90); rerender(); }
-    if (k==='n'||k==='N'){ FOV=clamp(FOV+1,30,90); rerender(); }
-
-    // Paletas (muchas)
-    if (k==='r' || k==='R' || k==='e' || k==='E'){ // siguiente
-      paletteIdx = (paletteIdx+1) % PALETTES.length;
-      applyPalette(PALETTES[paletteIdx]); rerender();
-    }
-    if (k==='y' || k==='Y'){ // anterior
-      paletteIdx = (paletteIdx-1+PALETTES.length) % PALETTES.length;
-      applyPalette(PALETTES[paletteIdx]); rerender();
-    }
+    if (k==='ArrowLeft'){YAW_DEG=wrapDeg(YAW_DEG-3); rerender(); e.preventDefault();}
+    if (k==='ArrowRight'){YAW_DEG=wrapDeg(YAW_DEG+3); rerender(); e.preventDefault();}
+    if (k==='ArrowUp'){ELEV_DEG=clamp(ELEV_DEG+2,0,85); rerender(); e.preventDefault();}
+    if (k==='ArrowDown'){ELEV_DEG=clamp(ELEV_DEG-2,0,85); rerender(); e.preventDefault();}
+    if (k==='z'||k==='Z'){DIST=clamp(DIST-0.5,4,40); rerender();}
+    if (k==='x'||k==='X'){DIST=clamp(DIST+0.5,4,40); rerender();}
+    if (k==='m'||k==='M'){FOV=clamp(FOV-1,30,90); rerender();}
+    if (k==='n'||k==='N'){FOV=clamp(FOV+1,30,90); rerender();}
+    // Paletas
+    if (k==='r'||k==='R'||k==='e'||k==='E'){paletteIdx=(paletteIdx+1)%PALETTES.length; applyPalette(PALETTES[paletteIdx]); rerender();}
+    if (k==='y'||k==='Y'){paletteIdx=(paletteIdx-1+PALETTES.length)%PALETTES.length; applyPalette(PALETTES[paletteIdx]); rerender();}
+    if (k==='p'||k==='P'){paletteIdx=Math.floor(Math.random()*PALETTES.length); applyPalette(PALETTES[paletteIdx]); rerender();}
+    if (k==='h'||k==='H'){HUD_ON=!HUD_ON; rerender();}
   });
 
-  // ========= Inicio =========
+  // ===== GViz load + primer render =====
   render({countsHalf:{home:Array(6).fill(0),away:Array(6).fill(0)}});
-  load();
+  (function load(){injectScript(); if (REFRESH_SEC>0) setTimeout(load, REFRESH_SEC*1000);})();
   animateIntroCamera();
 })();
 </script>
 </body>
 </html>
-
-
 
