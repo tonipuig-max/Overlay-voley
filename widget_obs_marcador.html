@@ -189,7 +189,7 @@
     }catch(_){ /* silencioso en OBS */ }
   }
 
-  function loop(){ fetchData().finally(()=>setTimeout(loop,1500)); }
+  function loop(){ fetchData().finally(()=>setTimeout(loop,500)); }
 
   // primer render base
   buildHead(0);
