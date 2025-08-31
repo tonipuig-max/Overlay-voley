@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OBS Marcador Vóley Vivo</title>
+<title>OBS Marcador Vóley (rápido)</title>
 <style>
   html,body{margin:0;padding:0;background:transparent}
   :root{
     --scale:16;
     --fg:#ffffff;
     --sub:#fffae5;
-    --row1:rgba(255,102,0,0.65);     /* naranja vivo */
-    --row2:rgba(0,128,255,0.65);     /* azul vivo */
-    --border:#ffffff;                /* separador blanco */
+    --row1:rgba(255,102,0,0.65);
+    --row2:rgba(0,128,255,0.65);
+    --border:#ffffff;
     --badge:rgba(255,255,255,.25);
     --badge-bd:rgba(255,255,255,.6);
     --radius:10px;
@@ -49,6 +49,7 @@
   const SCALE=Math.max(12,parseInt(p.get('scale')||'16',10));
   const SHOW_TOTALS=p.get('totals')==='1';
   const SHADOW=p.get('shadow')==='1';
+  const INTERVAL=Math.max(150, parseInt(p.get('interval')||'500',10) || 500); // mínimo 150ms por seguridad
 
   document.documentElement.style.setProperty('--scale',SCALE);
   if(SHADOW)document.getElementById('root').classList.add('shadow-on');
@@ -62,76 +63,40 @@
   function buildHead(cols){
     headEl.innerHTML='';
     headEl.style.gridTemplateColumns=gridTemplate(cols);
-
-    // celda del nombre de equipo (vacía)
     const e=document.createElement('div'); e.className='cell'; headEl.appendChild(e);
-
-    // S 1..cols
-    for(let i=1;i<=cols;i++){
-      const c=document.createElement('div');
-      c.className='cell';
-      c.textContent=`S ${i}`;
-      headEl.appendChild(c);
-    }
-    // SETS
-    if(SHOW_TOTALS){
-      const c=document.createElement('div');
-      c.className='cell divider-h';
-      c.textContent='SETS';
-      headEl.appendChild(c);
-    }
+    for(let i=1;i<=cols;i++){const c=document.createElement('div'); c.className='cell'; c.textContent=`S ${i}`; headEl.appendChild(c);}
+    if(SHOW_TOTALS){const c=document.createElement('div'); c.className='cell divider-h'; c.textContent='SETS'; headEl.appendChild(c);}
   }
 
   function buildRow(label, cols){
     const r=document.createElement('div');
     r.className='row';
     r.style.gridTemplateColumns=gridTemplate(cols);
-
-    const t=document.createElement('div');
-    t.className='cell team';
-    t.innerHTML=`<span class="team-pill">${label}</span>`;
-    r.appendChild(t);
-
-    for(let i=0;i<cols;i++){
-      const c=document.createElement('div');
-      c.className='cell score';
-      c.textContent='—';
-      r.appendChild(c);
-    }
-
-    if(SHOW_TOTALS){
-      const ct=document.createElement('div');
-      ct.className='cell score divider-b';
-      ct.textContent='0';
-      r.appendChild(ct);
-    }
+    const t=document.createElement('div'); t.className='cell team'; t.innerHTML=`<span class="team-pill">${label}</span>`; r.appendChild(t);
+    for(let i=0;i<cols;i++){const c=document.createElement('div'); c.className='cell score'; c.textContent='—'; r.appendChild(c);}
+    if(SHOW_TOTALS){const ct=document.createElement('div'); ct.className='cell score divider-b'; ct.textContent='0'; r.appendChild(ct);}
     return r;
   }
 
-  // calcula cuántas columnas de set mostrar: desde S1 hasta el primero que esté 0-0
   function calcVisibleCols(hist){
     let visible=0;
     for(let i=0;i<COLS;i++){
       const r=hist[i]||{};
       const ph=Number(r.points_home||0);
       const pa=Number(r.points_away||0);
-      if (ph===0 && pa===0) break;   // al primer 0-0, paramos
+      if (ph===0 && pa===0) break;
       visible = i+1;
     }
-    return visible;
+    return Math.max(visible,1); // al menos 1 columna para estabilidad visual
   }
 
   function render(names, hist){
     const cols = calcVisibleCols(hist);
-
-    // reconstruye cabecera y filas con el nº de columnas visible
     headEl.innerHTML=''; tableEl.innerHTML='';
     buildHead(cols);
     const rowH=buildRow(names.home, cols);
     const rowA=buildRow(names.away, cols);
     tableEl.appendChild(rowH); tableEl.appendChild(rowA);
-
-    // rellenar puntos de sets visibles
     for(let i=0;i<cols;i++){
       const r=hist[i]||{};
       const ph=Number(r.points_home||0);
@@ -139,8 +104,6 @@
       rowH.children[1+i].textContent = String(ph);
       rowA.children[1+i].textContent = String(pa);
     }
-
-    // totales (solo contando los sets visibles)
     if(SHOW_TOTALS){
       let th=0, ta=0;
       for(let i=0;i<cols;i++){
@@ -149,32 +112,59 @@
         const pa=Number(r.points_away||0);
         if (ph>pa) th++; else if (pa>ph) ta++;
       }
-      // última celda de cada fila
       rowH.lastChild.textContent = String(th);
       rowA.lastChild.textContent = String(ta);
     }
   }
 
-  // ======== Fetch & refresh ========
+  // ======== Fetch optimizado ========
   let lastSnap='';
+  let inFlight; // AbortController para cancelar si hay nueva iteración
+
+  function buildQS(base, extra=''){
+    const sep = base.includes('?') ? '&' : '?';
+    const tok = TOKEN ? ('token='+encodeURIComponent(TOKEN)+'&') : '';
+    return base + sep + tok + extra + (extra ? '&' : '') + 't=' + Date.now();
+  }
+
+  async function fetchBundled(ctrl){
+    const r = await fetch(buildQS(API, 'bundle=1'), {cache:'no-store', signal: ctrl.signal});
+    const j = await r.json();
+    // esperamos formato { data: {...}, history: [...] }
+    const d = j.data || {};
+    const hist = Array.isArray(j.history) ? j.history : [];
+    return { d, hist };
+  }
+
+  async function fetchSplit(ctrl){
+    const [rS, rH] = await Promise.all([
+      fetch(buildQS(API,''), {cache:'no-store', signal: ctrl.signal}),
+      fetch(buildQS(API,'type=history'), {cache:'no-store', signal: ctrl.signal})
+    ]);
+    const js = await rS.json().catch(()=>({}));
+    const jh = await rH.json().catch(()=>({history:[]}));
+    const d = js.data || js || {};
+    const hist = Array.isArray(jh.history) ? jh.history : [];
+    return { d, hist };
+  }
+
   async function fetchData(){
     if(!API) return;
+    if(inFlight){ try{ inFlight.abort(); }catch(_){ } }
+    inFlight = new AbortController();
+    const ctrl = inFlight;
+
     try{
-      const qsBase = API + (API.includes('?')?'&':'?') + (TOKEN?('token='+encodeURIComponent(TOKEN)+'&'):'') + 't=' + Date.now();
-      const [rS, rH] = await Promise.all([
-        fetch(qsBase, {cache:'no-store'}),
-        fetch(API + (API.includes('?')?'&':'?') + (TOKEN?('token='+encodeURIComponent(TOKEN)+'&'):'') + 'type=history&t=' + Date.now(), {cache:'no-store'})
-      ]);
-
-      const js=await rS.json().catch(()=>({}));
-      const jh=await rH.json().catch(()=>({history:[]}));
-
-      const d=js.data||js||{};
-      const hist=Array.isArray(jh.history)?jh.history:[];
+      // 1) Intentar endpoint combinado
+      let d, hist;
+      try{
+        ({ d, hist } = await fetchBundled(ctrl));
+      }catch(_){
+        // 2) Fallback a dos peticiones en paralelo
+        ({ d, hist } = await fetchSplit(ctrl));
+      }
 
       const names = { home:String(d.team_home||'HOME'), away:String(d.team_away||'AWAY') };
-
-      // snapshot para evitar repintados innecesarios
       const vis = calcVisibleCols(hist);
       const snap = JSON.stringify({
         names,
@@ -184,23 +174,32 @@
 
       if (snap !== lastSnap){
         lastSnap = snap;
-        render(names, hist);
+        // usar rAF para pintar lo más cerca del siguiente frame
+        requestAnimationFrame(()=>render(names, hist));
       }
-    }catch(_){ /* silencioso en OBS */ }
+    }catch(e){
+      // Silencioso en OBS; si fue abortado, ignorar.
+    }
   }
 
-  function loop(){ fetchData().finally(()=>setTimeout(loop,1500)); }
+  function loop(){
+    fetchData().finally(()=>setTimeout(loop, INTERVAL));
+  }
 
-  // primer render base
-  buildHead(0);
-  tableEl.appendChild(buildRow('HOME',0));
-  tableEl.appendChild(buildRow('AWAY',0));
+  // Render inicial
+  (function firstPaint(){
+    headEl.innerHTML=''; tableEl.innerHTML='';
+    buildHead(1);
+    tableEl.appendChild(buildRow('HOME',1));
+    tableEl.appendChild(buildRow('AWAY',1));
+  })();
 
   loop();
 })();
 </script>
 </body>
 </html>
+
 
 
 
