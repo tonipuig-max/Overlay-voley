@@ -50,7 +50,7 @@
   // Paletas
   const GEN_COUNT  = Math.max(8, Number(p.get('palettes')||64));
   const START_PAL  = Number(p.get('pal')||0); // 1-index
-  const defaultStart = 52;
+  const defaultStart = 1;
 
   // ===== Cámara =====
   let YAW_DEG=44, ELEV_DEG=30, DIST=14, FOV=55;
@@ -87,6 +87,7 @@
 
   // ===== Paletas =====
   const CURATED = [
+    {name:"Sky Day", court:{top:"#3399FF",mid:"#66B2FF",bot:"#B3D9FF"}, heat:{low:"#22C55E",mid:"#F59E0B",high:"#DC2626"}},
     {name:"Teal Sand", court:{top:"#0E7490",mid:"#2DD4BF",bot:"#FDE68A"}, heat:{low:"#22C55E",mid:"#F59E0B",high:"#DC2626"}},
     {name:"Slate Copper", court:{top:"#334155",mid:"#64748B",bot:"#EED9C4"}, heat:{low:"#06B6D4",mid:"#F59E0B",high:"#B91C1C"}},
     {name:"Mauve Peach", court:{top:"#7C3AED",mid:"#F0ABFC",bot:"#FED7AA"}, heat:{low:"#10B981",mid:"#F59E0B",high:"#EF4444"}},
@@ -309,8 +310,11 @@
     drawX(-3); drawX(3);
   }
   function drawNetWithPosts(cam,f,sx,sy,dpr){
-    const BL=projectCam(worldToCam({x:0,y:-COURT_H/2,z:0},cam),f), BR=projectCam(worldToCam({x:0,y: COURT_H/2,z:0},cam),f),
-          TL=projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_H},cam),f), TR=projectCam(worldToCam({x:0,y: COURT_H/2,z:NET_H},cam),f);
+   const NET_CLEAR = 1; // 1 metro de hueco bajo la red
+const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
+      BR = projectCam(worldToCam({x:0,y: COURT_H/2,z:NET_CLEAR},cam),f),
+      TL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_H},cam),f),
+      TR = projectCam(worldToCam({x:0,y: COURT_H/2,z:NET_H},cam),f);
     const pts=[{x:sx+BL.x,y:sy-BL.y},{x:sx+BR.x,y:sy-BR.y},{x:sx+TR.x,y:sy-TR.y},{x:sx+TL.x,y:sy-TL.y}];
     ctx.save();
     ctx.globalAlpha=.9; ctx.fillStyle='rgba(0,0,0,.35)';
@@ -322,8 +326,8 @@
     ctx.restore();
 
     const poleOffset=0.35;
-    const Lb={x:0,y:-COURT_H/2-poleOffset,z:0}, Lt={x:0,y:-COURT_H/2-poleOffset,z:NET_H+0.4};
-    const Rb={x:0,y: COURT_H/2+poleOffset,z:0}, Rt={x:0,y: COURT_H/2+poleOffset,z:NET_H+0.4};
+    const Lb={x:0,y:-COURT_H/2-poleOffset,z:0}, Lt={x:0,y:-COURT_H/2-poleOffset,z:NET_H};
+    const Rb={x:0,y: COURT_H/2+poleOffset,z:0}, Rt={x:0,y: COURT_H/2+poleOffset,z:NET_H};
     drawPole(Lb,Lt,POLE_RADIUS,cam,f,sx,sy,dpr);
     drawPole(Rb,Rt,POLE_RADIUS,cam,f,sx,sy,dpr);
   }
