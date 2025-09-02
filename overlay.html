@@ -43,6 +43,12 @@
   const TEAM_COLOR    = p.get('teamColor') || '#FFFFFF';
   const TEAM_MARGIN   = Number(p.get('teamPad')||16); // margen interno al recuadro
 
+  // Banner inferior del set
+  const BANNER_FS    = Number(p.get('bannerFS')||22); // px
+  const BANNER_COLOR = p.get('bannerColor') || '#FFFFFF';
+  const BANNER_PAD    = Number(p.get('bannerPad')||12); // px extra inferior
+  const BANNER_STROKE = Number(p.get('bannerStroke')||1.25); // grosor del trazo del texto
+
   // HUDs
   let HUD_ON   = (p.get('hud')||'0')!=='0';
   let CAMHUD_ON= (p.get('camhud')??'1')==='1';
@@ -370,15 +376,51 @@ const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
 ctx.save(); ctx.globalAlpha *= (typeof heatFade==='number' ? heatFade : 1);
 ctx.fillStyle = mixHeat(cLow,cMid,cHigh,tHeat, side==='home'?0.88:0.82);
 ctx.fill(); ctx.restore();
-if (val>0){ const pct=tot>0?Math.round((val/tot)*100):0; if (pct>0){ ctx.save(); ctx.globalAlpha *= (typeof heatFade==='number' ? heatFade : 1);
-ctx.font=`${Math.round(16*dpr)}px Inter,system-ui,Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=6*dpr; ctx.fillStyle='rgba(255,255,255,.97)'; ctx.fillText(`${pct}%`, cx, cy); ctx.restore(); } }
+// Siempre mostrar porcentaje (incluye 0% o nulos)
+const safeVal = (Number.isFinite(val) ? val : 0);
+const pct = tot>0 ? Math.round((safeVal/tot)*100) : 0;
+ctx.save(); ctx.globalAlpha *= (typeof heatFade==='number' ? heatFade : 1);
+ctx.font=`${Math.round(16*dpr)}px Inter,system-ui,Arial`;
+ctx.textAlign='center'; ctx.textBaseline='middle';
+ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=6*dpr;
+ctx.fillStyle='rgba(255,255,255,.97)';
+ctx.fillText(`${pct}%`, cx, cy);
+ctx.restore();
       }
     }
   }
 
   // ===== Etiquetas de equipos =====
   let introFinished = false;
-  function drawTeamLabelsLR(frame, dpr){
+  function ordinalES(n){
+  switch(Number(n)){
+    case 1: return 'PRIMER';
+    case 2: return 'SEGUNDO';
+    case 3: return 'TERCER';
+    case 4: return 'CUARTO';
+    case 5: return 'QUINTO';
+    default: return `${n}º`;
+  }
+}
+function drawSetBanner(frame, dpr){
+  if (!introFinished) return;
+  const ord = ordinalES(currentSet);
+  const text = `${ord} SET: Porcentaje de puntos por zona de ataque`;
+  const margin = TEAM_MARGIN * dpr;
+  const x = frame.x + frame.w/2;
+  const y = frame.y + frame.h - margin; // parte baja del recuadro
+  ctx.save();
+  ctx.font = `${Math.round(BANNER_FS*dpr)}px Inter,system-ui,Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.shadowColor = 'rgba(0,0,0,.55)';
+  ctx.shadowBlur = 6*dpr;
+  ctx.fillStyle = BANNER_COLOR;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function drawTeamLabelsLR(frame, dpr){
     if (!introFinished) return;
     const margin = TEAM_MARGIN * dpr;
     const y = frame.y + margin;
@@ -464,7 +506,10 @@ ctx.font=`${Math.round(16*dpr)}px Inter,system-ui,Arial`; ctx.textAlign='center'
     // 5) Nombres de equipos
     drawTeamLabelsLR(frame, dpr);
 
-    // 6) HUDs
+    
+    // Banner inferior con ordinal del set
+    drawSetBanner(frame, dpr);
+// 6) HUDs
     drawPaletteHUD(dpr);
     drawCameraHUD(dpr);
   
