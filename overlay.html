@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pista 3D – OBS (nombres tras animación, arriba izq/der)</title>
+<title>Pista 3D – OBS (3 zonas por campo) · FIX swapSides</title>
 <style>
   :root{
     --court-top:#0E7490; --court-mid:#2DD4BF; --court-bot:#FDE68A;
@@ -22,7 +22,7 @@
 (() => {
   // ===== Parámetros URL =====
   const p = new URLSearchParams(location.search);
-  const SHEET_ID   = "1dlu41kVti3-wnKV-dRxVJqqDK5mvYUBFA0W70Ao9OdQ";
+  const SHEET_ID   = p.get('sheetId') || "1dlu41kVti3-wnKV-dRxVJqqDK5mvYUBFA0W70Ao9OdQ"; // permite override
   const SHEET_NAME = p.get('sheet') || "Heatmap";
   const GID        = p.get('gid') || '';
   let currentSet   = Number(p.get('set')||1);
@@ -30,13 +30,13 @@
 
   // Recuadro (container)
   const FRAME_PAD       = Number(p.get('framePad')||24);
-  const FRAME_PAD_SHORT = Number(p.get('framePadShort')||100); // ← como pediste
+  const FRAME_PAD_SHORT = Number(p.get('framePadShort')||100);
   const FRAME_RADIUS    = Number(p.get('frameRadius')||14);
   const FRAME_FILL      = p.get('frameFill')   || 'rgba(20,22,26,0.80)';
   const FRAME_STROKE    = p.get('frameStroke') || 'rgba(255,255,255,0.12)';
 
   // Equipos (HOME=izquierda, AWAY=derecha)
-  const TEAM_HOME_URL = p.get('teamHome') || p.get('home') || '';
+  const TEAM_HOME_URL = p.get('teamHome') || p.get('home') || ''; // permite forzar nombre
   const TEAM_AWAY_URL = p.get('teamAway') || p.get('away') || '';
   const SWAP_SIDES    = (p.get('swapSides')==='1'); // invierte izq/der si tu feed lo requiere
   const TEAM_FS       = Number(p.get('teamFS')||22); // px
@@ -134,6 +134,7 @@
   let baseURL=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
   if (SHEET_NAME) baseURL+=`&sheet=${encodeURIComponent(SHEET_NAME)}`;
   else if (GID)   baseURL+=`&gid=${encodeURIComponent(GID)}`;
+
   window.google=window.google||{}; google.visualization=google.visualization||{};
   google.visualization.Query=google.visualization||{};
   function injectScript(){ const s=document.createElement("script"); s.src=baseURL+`&t=${Date.now()}`; s.async=true;
@@ -141,7 +142,7 @@
   function rowsToObjects(table){
     const cols=table.cols.map(c=>(c.label||"").toLowerCase().trim());
     return table.rows.map(r=>{const o={}; r.c.forEach((cell,i)=>o[cols[i]]=cell?cell.v:null);
-      o.set=Number(o.set); o.side=(o.side||"").toLowerCase(); o.zone=Number(o.zone); o.team=o.team||""; o.count=o.count!=null?Number(o.count):1; return o;});
+      o.set=Number(o.set); o.side=(o.side||"").toLowerCase().trim(); o.zone=Number(o.zone); o.team=(o.team||"").trim(); o.count=o.count!=null?Number(o.count):1; return o;});
   }
 
   // Nombres detectados desde Sheet (si no vienen por URL)
@@ -167,22 +168,41 @@
         TEAM_HOME = TEAM_HOME || topK(homeCounts) || "HOME";
         TEAM_AWAY = TEAM_AWAY || topK(awayCounts) || "AWAY";
         TEAMS_READY = true;
-        if (SWAP_SIDES) [TEAM_HOME, TEAM_AWAY] = [TEAM_AWAY, TEAM_HOME];
       }
 
       const agg=aggregateForSet(all,currentSet);
+
+      // === FIX clave: si swapSides=1, intercambiamos también los datos ===
+      if (SWAP_SIDES){
+        [agg.countsHalf.home, agg.countsHalf.away] = [agg.countsHalf.away, agg.countsHalf.home];
+        // Y además intercambiamos las etiquetas (si no se forzaron por URL)
+        if (!TEAM_HOME_URL && !TEAM_AWAY_URL){
+          [TEAM_HOME, TEAM_AWAY] = [TEAM_AWAY, TEAM_HOME];
+        }
+      }
+
       render(agg);
     }catch(e){ console.error("Error GViz:", e); }
   };
   function load(){ injectScript(); }
   if (REFRESH_SEC>0) setInterval(load, REFRESH_SEC*1000);
 
-  // ===== Datos / agregación =====
-  const gridMap=[ [[5,'home'],[4,'home'],[2,'away'],[1,'away']], [[6,'home'],[3,'home'],[3,'away'],[6,'away']], [[1,'home'],[2,'home'],[4,'away'],[5,'away']] ];
+  // ===== Datos / agregación (3 zonas por mitad) =====
+  const gridMap=[
+    [[1,'home'], [3,'away']],
+    [[2,'home'], [2,'away']],
+    [[3,'home'], [1,'away']],
+  ];
+
   function aggregateForSet(rows,setN){
     const setRows=rows.filter(r=>r.set===setN);
-    const countsHalf={home:Array(6).fill(0),away:Array(6).fill(0)};
-    for(const r of setRows){ if(r.side==='home'||r.side==='away'){ const z=Math.max(1,Math.min(6,r.zone)); countsHalf[r.side][z-1]+=isFinite(r.count)?r.count:1; } }
+    const countsHalf={home:Array(3).fill(0),away:Array(3).fill(0)}; // 3 zonas
+    for(const r of setRows){
+      if(r.side==='home'||r.side==='away'){
+        const z=Math.max(1,Math.min(3,Number(r.zone)||0));
+        countsHalf[r.side][z-1]+=isFinite(r.count)?r.count:1;
+      }
+    }
     return {countsHalf};
   }
 
@@ -317,18 +337,19 @@
     ctx.beginPath(); ctx.moveTo(sx+t.x-pxR*0.6, sy-t.y); ctx.lineTo(sx+t.x+pxR*0.6, sy-t.y); ctx.stroke(); ctx.restore();
   }
 
-  // ===== Heatmap con % =====
+  // ===== Heatmap con % (2 columnas × 3 filas) =====
   function drawHeatmap(countsHalf, cam, f, sx, sy, dpr){
     const cLow=getComputedStyle(document.documentElement).getPropertyValue('--heat-low').trim();
     const cMid=getComputedStyle(document.documentElement).getPropertyValue('--heat-mid').trim();
     const cHigh=getComputedStyle(document.documentElement).getPropertyValue('--heat-high').trim();
     const totHome=countsHalf.home.reduce((a,b)=>a+b,0), totAway=countsHalf.away.reduce((a,b)=>a+b,0);
     for(let r=0;r<3;r++){
-      for(let c=0;c<4;c++){
-        const u0=c/4,u1=(c+1)/4,v0=r/3,v1=(r+1)/3;
+      for(let c=0;c<2;c++){
+        const u0=c/2,u1=(c+1)/2,v0=r/3,v1=(r+1)/3;
         const quadWorld=[{x:(u0-.5)*COURT_W,y:(v0-.5)*COURT_H,z:0},{x:(u1-.5)*COURT_W,y:(v0-.5)*COURT_H,z:0},{x:(u1-.5)*COURT_W,y:(v1-.5)*COURT_H,z:0},{x:(u0-.5)*COURT_W,y:(v1-.5)*COURT_H,z:0}];
         const P=quadWorld.map(pw=>{const pr=projectCam(worldToCam(pw,cam),f);return{x:sx+pr.x,y:sy-pr.y};});
-        const [zone,side]=gridMap[r][c]; const val=countsHalf[side][zone-1]||0; const tot=side==='home'?totHome:totAway; const tHeat=tot>0?Math.min(1,val/tot):0;
+        const [zone,side]=gridMap[r][c];
+        const val=countsHalf[side][zone-1]||0; const tot=side==='home'?totHome:totAway; const tHeat=tot>0?Math.min(1,val/tot):0;
         const inset=2*dpr; const cx=(P[0].x+P[1].x+P[2].x+P[3].x)/4, cy=(P[0].y+P[1].y+P[2].y+P[3].y)/4;
         const Q=P.map(pt=>{const dx=pt.x-cx,dy=pt.y-cy,L=Math.hypot(dx,dy)||1;const k=L-inset;return {x:cx+dx*(k/L),y:cy+dy*(k/L)};});
         ctx.beginPath(); ctx.moveTo(Q[0].x,Q[0].y); for(let i=1;i<4;i++) ctx.lineTo(Q[i].x,Q[i].y); ctx.closePath();
@@ -339,30 +360,25 @@
     }
   }
 
-  // ===== Etiquetas de equipos (solo cuando termina la animación) =====
+  // ===== Etiquetas de equipos =====
   let introFinished = false;
-// Etiquetas de equipos: centradas en cada mitad, en la parte superior del recuadro
-function drawTeamLabelsLR(frame, dpr){
-  if (!introFinished || !TEAMS_READY) return; // no mostrar hasta que acabe la animación
-
-  const margin = TEAM_MARGIN * dpr;
-  const y = frame.y + margin;                // cerca del borde superior del recuadro
-  const cxHome = frame.x + frame.w * 0.25;   // centro de la mitad izquierda
-  const cxAway = frame.x + frame.w * 0.75;   // centro de la mitad derecha
-
-  ctx.save();
-  ctx.font = `${Math.round(TEAM_FS*dpr)}px Inter,system-ui,Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(0,0,0,.55)';
-  ctx.shadowBlur = 6*dpr;
-  ctx.fillStyle = TEAM_COLOR;
-
-  if (TEAM_HOME) ctx.fillText(TEAM_HOME, cxHome, y);
-  if (TEAM_AWAY) ctx.fillText(TEAM_AWAY, cxAway, y);
-
-  ctx.restore();
-}
+  function drawTeamLabelsLR(frame, dpr){
+    if (!introFinished) return;
+    const margin = TEAM_MARGIN * dpr;
+    const y = frame.y + margin;
+    const cxHome = frame.x + frame.w * 0.25;
+    const cxAway = frame.x + frame.w * 0.75;
+    ctx.save();
+    ctx.font = `${Math.round(TEAM_FS*dpr)}px Inter,system-ui,Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(0,0,0,.55)';
+    ctx.shadowBlur = 6*dpr;
+    ctx.fillStyle = TEAM_COLOR;
+    if (TEAM_AWAY) ctx.fillText(TEAM_AWAY, cxHome, y);
+    if (TEAM_HOME) ctx.fillText(TEAM_HOME, cxAway, y);
+    ctx.restore();
+  }
 
   // ===== HUDs =====
   function drawPaletteHUD(dpr){
@@ -399,7 +415,7 @@ function drawTeamLabelsLR(frame, dpr){
   }
 
   // ===== Render =====
-  let lastAgg={countsHalf:{home:Array(6).fill(0),away:Array(6).fill(0)}};
+  let lastAgg={countsHalf:{home:Array(3).fill(0),away:Array(3).fill(0)}};
   function drawScene(countsHalf){
     const dpr=Math.max(1,window.devicePixelRatio||1), w=canvas.clientWidth*dpr, h=canvas.clientHeight*dpr;
     canvas.width=w; canvas.height=h; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,w,h);
@@ -431,7 +447,7 @@ function drawTeamLabelsLR(frame, dpr){
     // 4) Heatmap
     drawHeatmap(countsHalf,cam,f,sx,sy,dpr);
 
-    // 5) Nombres de equipos (solo cuando termine la animación)
+    // 5) Nombres de equipos
     drawTeamLabelsLR(frame, dpr);
 
     // 6) HUDs
@@ -446,7 +462,7 @@ function drawTeamLabelsLR(frame, dpr){
 
   // ===== Animación inicial (yaw 44 → 89) =====
   function animateIntroCamera(){
-    introFinished = false; // ← importantísimo
+    introFinished = false;
     const startYaw=44, endYaw=89;
     const startElev=30, endElev=30;
     const startDist=14, endDist=14;
@@ -460,7 +476,7 @@ function drawTeamLabelsLR(frame, dpr){
       DIST=startDist+(endDist-startDist)*e;
       rerender();
       if (t<1) requestAnimationFrame(step);
-      else { introFinished = true; rerender(); } // ← ahora sí mostramos nombres
+      else { introFinished = true; rerender(); }
     }
     requestAnimationFrame(step);
   }
@@ -487,14 +503,10 @@ function drawTeamLabelsLR(frame, dpr){
   });
 
   // ===== Carga inicial =====
-  render({countsHalf:{home:Array(6).fill(0),away:Array(6).fill(0)}});
+  render({countsHalf:{home:Array(3).fill(0),away:Array(3).fill(0)}});
   (function load(){injectScript(); if (REFRESH_SEC>0) setTimeout(load, REFRESH_SEC*1000);})();
   animateIntroCamera();
 })();
 </script>
 </body>
 </html>
-
-
-
-
