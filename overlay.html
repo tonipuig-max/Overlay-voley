@@ -338,7 +338,8 @@
   }
 
   // ===== Heatmap con % (2 columnas × 3 filas) =====
-  function drawHeatmap(countsHalf, cam, f, sx, sy, dpr){
+  function drawHeatmap(countsHalf, cam, f, sx, sy, dpr){if (!introFinished) return;
+
     const cLow=getComputedStyle(document.documentElement).getPropertyValue('--heat-low').trim();
     const cMid=getComputedStyle(document.documentElement).getPropertyValue('--heat-mid').trim();
     const cHigh=getComputedStyle(document.documentElement).getPropertyValue('--heat-high').trim();
