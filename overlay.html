@@ -6,7 +6,7 @@
 <title>Pista 3D – OBS (3 zonas por campo) · FIX swapSides</title>
 <style>
   :root{
-    --court-top:#0E7490; --court-mid:#2DD4BF; --court-bot:#FDE68A;
+    --court-top:#669FEB; --court-mid:#669FEB; --court-bot:#669FEB;
     --heat-low:#22C55E;  --heat-mid:#F59E0B;  --heat-high:#DC2626;
     --line:#ffffff;
   }
@@ -52,12 +52,22 @@
   const START_PAL  = Number(p.get('pal')||0); // 1-index
   const defaultStart = 1;
 
+  // === Fade-in simple de las zonas tras la animación de cámara ===
+  let heatFade = 0;           // 0 → 1
+  let heatFadeStarted = false;
+  const HEAT_MS = Math.max(0, Number(p.get('heatMs')||800)); // duración (ms). URL: ?heatMs=1200
+
+
   // ===== Cámara =====
   let YAW_DEG=44, ELEV_DEG=30, DIST=14, FOV=55;
   const FIT=true, PADPX=20;
 
   // ===== Geometría =====
   const COURT_W=18, COURT_H=9, NET_H=2.43;
+  // --- Ajustes de red: hueco bajo la red (m) y cota superior de red/poste ---
+  const NET_CLEAR = 1.24;   // parte inferior de la red a 1,24 m del suelo
+  const POST_TOP  = NET_H;   // parte superior de la red = parte superior del poste
+
 
   // Postes
   const POLE_RADIUS = Number(p.get('poleRadius') || 0.10);
@@ -87,8 +97,7 @@
 
   // ===== Paletas =====
   const CURATED = [
-    {name:"Sky Day", court:{top:"#3399FF",mid:"#66B2FF",bot:"#B3D9FF"}, heat:{low:"#22C55E",mid:"#F59E0B",high:"#DC2626"}},
-    {name:"Teal Sand", court:{top:"#0E7490",mid:"#2DD4BF",bot:"#FDE68A"}, heat:{low:"#22C55E",mid:"#F59E0B",high:"#DC2626"}},
+    {name:"Teal Sand", court:{top:"#669FEB",mid:"#669FEB",bot:"#669FEB"}, heat:{low:"#22C55E",mid:"#F59E0B",high:"#DC2626"}},
     {name:"Slate Copper", court:{top:"#334155",mid:"#64748B",bot:"#EED9C4"}, heat:{low:"#06B6D4",mid:"#F59E0B",high:"#B91C1C"}},
     {name:"Mauve Peach", court:{top:"#7C3AED",mid:"#F0ABFC",bot:"#FED7AA"}, heat:{low:"#10B981",mid:"#F59E0B",high:"#EF4444"}},
     {name:"Olive Cream", court:{top:"#3F6212",mid:"#84CC16",bot:"#FEF9C3"}, heat:{low:"#14B8A6",mid:"#F59E0B",high:"#DC2626"}},
@@ -305,12 +314,12 @@
   }
   function drawCourtLines(cam,f,sx,sy,dpr){
     const drawX=X=>{const a0={x:X,y:-COURT_H/2,z:0},a1={x:X,y:COURT_H/2,z:0}; const p0=projectCam(worldToCam(a0,cam),f), p1=projectCam(worldToCam(a1,cam),f);
-      ctx.lineWidth=2*dpr; ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'#fff';
+      ctx.lineWidth = 3*dpr; ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'#fff';
       ctx.beginPath(); ctx.moveTo(sx+p0.x, sy-p0.y); ctx.lineTo(sx+p1.x, sy-p1.y); ctx.stroke(); };
-    drawX(-3); drawX(3);
+    drawX(-3); drawX(0); drawX(3);
   }
   function drawNetWithPosts(cam,f,sx,sy,dpr){
-   const NET_CLEAR = 1; // 1 metro de hueco bajo la red
+    const NET_CLEAR = 1.0; // 1 metro de hueco bajo la red
 const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
       BR = projectCam(worldToCam({x:0,y: COURT_H/2,z:NET_CLEAR},cam),f),
       TL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_H},cam),f),
@@ -335,7 +344,7 @@ const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
     const b=projectCam(worldToCam(base,cam),f), t=projectCam(worldToCam(top,cam),f);
     const avgW=(b.z>0&&t.z>0)?((f/b.z+f/t.z)/2):(f/Math.max(b.z,1e-6));
     const pxR=Math.max(2*dpr, radius*avgW);
-    ctx.save(); ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.lineWidth=pxR*2; ctx.lineCap='round';
+    ctx.save(); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth=pxR*2; ctx.lineCap='round';
     ctx.beginPath(); ctx.moveTo(sx+b.x, sy-b.y); ctx.lineTo(sx+t.x, sy-t.y); ctx.stroke();
     ctx.lineWidth=Math.max(2*dpr, pxR*0.9);
     ctx.beginPath(); ctx.moveTo(sx+t.x-pxR*0.6, sy-t.y); ctx.lineTo(sx+t.x+pxR*0.6, sy-t.y); ctx.stroke(); ctx.restore();
@@ -358,9 +367,11 @@ const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
         const inset=2*dpr; const cx=(P[0].x+P[1].x+P[2].x+P[3].x)/4, cy=(P[0].y+P[1].y+P[2].y+P[3].y)/4;
         const Q=P.map(pt=>{const dx=pt.x-cx,dy=pt.y-cy,L=Math.hypot(dx,dy)||1;const k=L-inset;return {x:cx+dx*(k/L),y:cy+dy*(k/L)};});
         ctx.beginPath(); ctx.moveTo(Q[0].x,Q[0].y); for(let i=1;i<4;i++) ctx.lineTo(Q[i].x,Q[i].y); ctx.closePath();
-        ctx.fillStyle=mixHeat(cLow,cMid,cHigh,tHeat, side==='home'?0.88:0.82); ctx.fill();
-        if (val>0){ const pct=tot>0?Math.round((val/tot)*100):0; if (pct>0){ ctx.save(); ctx.font=`${Math.round(16*dpr)}px Inter,system-ui,Arial`;
-            ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=6*dpr; ctx.fillStyle='rgba(255,255,255,.97)'; ctx.fillText(`${pct}%`, cx, cy); ctx.restore(); } }
+ctx.save(); ctx.globalAlpha *= (typeof heatFade==='number' ? heatFade : 1);
+ctx.fillStyle = mixHeat(cLow,cMid,cHigh,tHeat, side==='home'?0.88:0.82);
+ctx.fill(); ctx.restore();
+if (val>0){ const pct=tot>0?Math.round((val/tot)*100):0; if (pct>0){ ctx.save(); ctx.globalAlpha *= (typeof heatFade==='number' ? heatFade : 1);
+ctx.font=`${Math.round(16*dpr)}px Inter,system-ui,Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.shadowColor='rgba(0,0,0,.45)'; ctx.shadowBlur=6*dpr; ctx.fillStyle='rgba(255,255,255,.97)'; ctx.fillText(`${pct}%`, cx, cy); ctx.restore(); } }
       }
     }
   }
@@ -445,11 +456,9 @@ const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
 
     // 3) Borde, líneas y red
     ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'#fff';
-    ctx.lineWidth=4*dpr; ctx.beginPath(); ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y); ctx.closePath(); ctx.stroke();
+    ctx.lineWidth = 5*dpr; ctx.beginPath(); ctx.moveTo(poly[0].x,poly[0].y); for(let i=1;i<4;i++) ctx.lineTo(poly[i].x,poly[i].y); ctx.closePath(); ctx.stroke();
     drawCourtLines(cam,f,sx,sy,dpr);
-    drawNetWithPosts(cam,f,sx,sy,dpr);
-
-    // 4) Heatmap
+// 4) Heatmap
     drawHeatmap(countsHalf,cam,f,sx,sy,dpr);
 
     // 5) Nombres de equipos
@@ -458,7 +467,10 @@ const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
     // 6) HUDs
     drawPaletteHUD(dpr);
     drawCameraHUD(dpr);
-  }
+  
+    // POSTS_LAST: dibujar postes/red al final para que queden por encima
+    drawNetWithPosts(cam,f,sx,sy,dpr);
+}
   function render(agg){ lastAgg=agg; drawScene(agg.countsHalf); }
   function rerender(){ drawScene(lastAgg.countsHalf); }
 
@@ -466,7 +478,20 @@ const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
   const ro=new ResizeObserver(()=>rerender()); ro.observe(document.querySelector('.stage'));
 
   // ===== Animación inicial (yaw 44 → 89) =====
-  function animateIntroCamera(){
+  function startHeatFade(){
+  if (heatFadeStarted) return;
+  heatFadeStarted = true;
+  const t0 = performance.now();
+  function step(now){
+    const e = HEAT_MS>0 ? Math.min(1, (now - t0)/HEAT_MS) : 1;
+    heatFade = e;
+    rerender();
+    if (e < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function animateIntroCamera(){
     introFinished = false;
     const startYaw=44, endYaw=89;
     const startElev=30, endElev=30;
@@ -481,7 +506,7 @@ const BL = projectCam(worldToCam({x:0,y:-COURT_H/2,z:NET_CLEAR},cam),f),
       DIST=startDist+(endDist-startDist)*e;
       rerender();
       if (t<1) requestAnimationFrame(step);
-      else { introFinished = true; rerender(); }
+      else { introFinished = true; if (!heatFadeStarted) startHeatFade(); rerender(); }
     }
     requestAnimationFrame(step);
   }
