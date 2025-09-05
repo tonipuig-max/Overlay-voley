@@ -1,10 +1,9 @@
-
 <!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Panel Marcador Vóley (Firebase) — Set centrado y botones laterales</title>
+<title>Panel Marcador Vóley (Firebase) — Mobile Tuned</title>
 <style>
   :root{
     --bg:#ffffff;
@@ -24,8 +23,8 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 100px}
-  .card{background:var(--card);border:1px solid var(--muted);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 110px}
+  .card{background:var(--card);border:1px solid var(--muted);border-radius:var(--radius);padding:14px;margin-bottom:14px;overflow:visible}
   h1{font-size:20px;margin:0 0 8px}
   h2{font-size:16px;margin:0 0 10px;color:var(--sub)}
   label{font-size:13px;color:var(--sub)}
@@ -42,9 +41,9 @@
   .scoreInput{width:64px;text-align:center;font-size:28px;font-weight:900;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid var(--input-border);color:var(--text)}
   .badge-set{min-width:48px;text-align:center;border:1px solid var(--muted);border-radius:8px;padding:4px 6px;background:#fff;color:var(--text);white-space:nowrap}
   table{width:100%;border-collapse:separate;border-spacing:0 8px}
-  th,td{padding:8px}
+  th,td{padding:8px;vertical-align:middle}
   th{color:var(--sub);font-weight:600;border-bottom:1px solid var(--muted)}
-  .cell{display:flex;align-items:center;justify-content:center;gap:6px}
+  .cell{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap}
   .thName{max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
   .status{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -53,7 +52,7 @@
   .small{font-size:12px;color:var(--sub)}
   .teamHeader{ font-weight:800; font-size:14px; margin:4px 0 8px; color:var(--text); }
 
-  /* Set selector in single centered line */
+  /* One-line centered set selector */
   .setline{ display:flex; align-items:center; justify-content:center; gap:12px; }
   .setBtn{ width:auto; min-width:56px; }
   .setNum{
@@ -62,11 +61,40 @@
     padding:8px 14px; border-radius:12px; background:#fff; border:1px solid var(--input-border);
   }
 
-  /* Center columns in serve blocks */
+  /* Centered columns and horizontal +/- for serve blocks */
   .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:8px; }
-  .teamCounter{ display:flex; align-items:center; gap:10px; }
+  .teamCounter{ display:flex; align-items:center; gap:10px; justify-content:center; }
   .teamCounter .scoreInput{ width:90px; }
   .teamCounter .btn{ width:auto; min-width:56px; }
+
+  /* ============ MOBILE TUNING (iPhone 12 width ~390px) ============ */
+  @media (max-width: 420px){
+    .wrap{padding:12px 12px 120px}
+    h1{font-size:18px}
+    h2{font-size:15px}
+    .card{padding:12px;border-radius:12px}
+    .grid2{grid-template-columns:1fr} /* stack two columns on small screens */
+    .btn{padding:8px; font-size:15px; width:auto; min-width:44px} /* no full-width to avoid overlap */
+    .btn-accent,.btn-ok{min-width:44px}
+    .scoreInput{width:56px; font-size:24px; padding:6px}
+    .cell{gap:6px}
+    table{border-spacing:0 6px}
+    th,td{padding:6px}
+    .badge-set{min-width:40px; padding:3px 5px}
+    .thName{max-width:120px}
+
+    /* Set selector smaller */
+    .setline{gap:10px}
+    .setBtn{min-width:44px}
+    .setNum{min-width:66px; font-size:32px; padding:6px 10px}
+
+    /* Serve blocks match sizes of heatmap/points */
+    .centerCols > div{gap:6px}
+    .teamCounter{gap:8px}
+    .teamCounter .scoreInput{width:56px; font-size:24px}
+    .teamCounter .btn{min-width:44px; padding:8px}
+    .teamHeader{font-size:13px}
+  }
 </style>
 </head>
 <body>
@@ -197,7 +225,15 @@
   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import { getDatabase, ref, onValue, set, update, get, child } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-  const firebaseConfig = {"apiKey": "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ", "authDomain": "supervolei-panel-final.firebaseapp.com", "databaseURL": "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app", "projectId": "supervolei-panel-final", "storageBucket": "supervolei-panel-final.firebasestorage.app", "messagingSenderId": "993690944196", "appId": "1:993690944196:web:1a7ea451c03201e6f6ff91"};
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+    authDomain: "supervolei-panel-final.firebaseapp.com",
+    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "supervolei-panel-final",
+    storageBucket: "supervolei-panel-final.firebasestorage.app",
+    messagingSenderId: "993690944196",
+    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
+  };
   let db=null, matchPath=null, listenersBound=false;
 
   const $ = (s)=>document.querySelector(s);
@@ -294,7 +330,7 @@
       };
       for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
       for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0], away:[0,0,0]}; }
-      for(let s=1;s<=5;s++){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+      for(let s=1;s<=5;s'){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
       await set(rootRef, base);
     }
   }
@@ -486,7 +522,7 @@
     const rootRef = ref(db, matchPath);
     const base = {teams:{home:'HOME',away:'AWAY'}, sets:{}, heat:{setNumber:1,sets:{}}, serveErrors:{}, servePoints:{}};
     for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
-    for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+    for(let s=1;s<=5)s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
     await set(rootRef, base);
   });
 
