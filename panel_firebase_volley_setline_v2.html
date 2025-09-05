@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Panel Marcador Vóley (Firebase) — Mobile v2 + Diagnóstico</title>
+<title>Panel Marcador Vóley (Firebase) — Mobile v2 Compact</title>
 <style>
   :root{
     --bg:#ffffff;
@@ -38,12 +38,15 @@
   .btn:active{transform:scale(.98)}
   .btn-ok   { background:#e9f7ee; border-color:#bfe8ca; color:#0f5132 }
   .btn-accent{ background:#e8efff; border-color:#c7d5e1; color:#1e40af }
+  .btnSm{ padding:6px 8px; font-size:14px; border-radius:10px; }
   .scoreInput{width:56px;text-align:center;font-size:24px;font-weight:900;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid var(--input-border);color:var(--text)}
+  .scoreInputSm{ width:52px; font-size:22px; padding:6px; }
   .badge-set{min-width:40px;text-align:center;border:1px solid var(--muted);border-radius:8px;padding:3px 6px;background:#fff;color:var(--text);white-space:nowrap}
   table{width:100%;border-collapse:separate;border-spacing:0 6px;table-layout:fixed}
   th,td{padding:6px;vertical-align:middle}
   th{color:var(--sub);font-weight:600;border-bottom:1px solid var(--muted)}
   .cell{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap}
+  .cell.tight{ gap:6px; }
   .thName{max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .footer{position:fixed;left:0;right:0;bottom:0;padding:8px 14px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
   .status{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -52,30 +55,47 @@
   .small{font-size:12px;color:var(--sub)}
   .teamHeader{ font-weight:800; font-size:14px; margin:2px 0 6px; color:var(--text); text-align:center; }
 
+  /* One-line centered set selector */
   .setline{ display:flex; align-items:center; justify-content:center; gap:10px; }
   .setBtn{ min-width:44px; }
-  .setNum{ min-width:66px; text-align:center; font-size:32px; line-height:1; font-weight:900; padding:6px 10px; border-radius:12px; background:#fff; border:1px solid var(--input-border); }
+  .setNum{
+    min-width:66px; text-align:center;
+    font-size:32px; line-height:1; font-weight:900;
+    padding:6px 10px; border-radius:12px; background:#fff; border:1px solid var(--input-border);
+  }
 
+  /* Centered columns & horizontal +/- for serve blocks (same size as points/heatmap) */
   .centerCols{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:6px; }
   .teamCounter{ display:flex; align-items:center; gap:8px; justify-content:center; }
   .teamCounter .scoreInput{ width:56px; font-size:24px; }
   .teamCounter .btn{ min-width:44px; }
 
-  td .btn{max-width:46px}
-  td .btn.btn-ok{max-width:46px}
+  /* Prevent overlap inside table cells on narrow screens */
+  td .btn{max-width:44px}
+  td .btn.btn-ok{max-width:44px}
 
+  /* Responsive for iPhone 12 (~390px) */
   @media (max-width: 420px){
     .wrap{padding:12px 12px 170px}
     h1{font-size:18px}
     h2{font-size:15px}
     .grid2{grid-template-columns:1fr}
     .thName{max-width:120px}
+
+    /* Compact controls to avoid overlap */
+    .cell{ gap:6px; }
+    .btn{ padding:7px 8px; font-size:14px; }
+    .btnSm{ padding:6px 8px; font-size:13px; }
+    .scoreInput{ width:52px; font-size:22px; padding:6px; }
+    .teamCounter .scoreInput{ width:52px; font-size:22px; }
+    td .btn{ max-width:40px }
+    td .btn.btn-ok{ max-width:40px }
+    .setNum{ min-width:62px; font-size:30px; padding:6px 8px }
   }
 
   /* DIAGNÓSTICO */
   #diag{position:fixed; left:10px; right:10px; bottom:64px; background:#111827; color:#f9fafb; border:1px solid #374151; border-radius:12px; padding:10px; z-index:9999}
-  #diag h3{margin:0 0 6px; font-size:14px}
   #diag .row{gap:6px}
   #dbg{background:#0b1220; color:#c7d2fe; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; padding:8px; border-radius:8px; height:92px; overflow:auto; white-space:pre-wrap}
   .pill{border-radius:999px; padding:2px 8px; font-size:12px; border:1px solid #374151; background:#1f2937}
@@ -123,7 +143,7 @@
       <div class="teamHeader" id="heatAwayName">AWAY</div>
     </div>
     <table style="margin-top:4px">
-      <thead><tr><th>Zona</th><th>HOME</th><th>AWAY</th></tr></thead>
+      <thead><tr><th>Z</th><th>HOME</th><th>AWAY</th></tr></thead>
       <tbody id="heatBody"></tbody>
     </table>
   </div>
@@ -140,17 +160,17 @@
       <div>
         <div class="teamHeader" id="serveErrHomeName">HOME</div>
         <div class="teamCounter">
-          <button class="btn" onclick="bumpServeErr('home',-1)">−</button>
-          <input id="serveErr_home" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServeErr('home',1)">+</button>
+          <button class="btn btnSm" onclick="bumpServeErr('home',-1)">−</button>
+          <input id="serveErr_home" class="scoreInput scoreInputSm" value="0">
+          <button class="btn btn-ok btnSm" onclick="bumpServeErr('home',1)">+</button>
         </div>
       </div>
       <div>
         <div class="teamHeader" id="serveErrAwayName">AWAY</div>
         <div class="teamCounter">
-          <button class="btn" onclick="bumpServeErr('away',-1)">−</button>
-          <input id="serveErr_away" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServeErr('away',1)">+</button>
+          <button class="btn btnSm" onclick="bumpServeErr('away',-1)">−</button>
+          <input id="serveErr_away" class="scoreInput scoreInputSm" value="0">
+          <button class="btn btn-ok btnSm" onclick="bumpServeErr('away',1)">+</button>
         </div>
       </div>
     </div>
@@ -168,17 +188,17 @@
       <div>
         <div class="teamHeader" id="servePtsHomeName">HOME</div>
         <div class="teamCounter">
-          <button class="btn" onclick="bumpServePts('home',-1)">−</button>
-          <input id="servePts_home" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServePts('home',1)">+</button>
+          <button class="btn btnSm" onclick="bumpServePts('home',-1)">−</button>
+          <input id="servePts_home" class="scoreInput scoreInputSm" value="0">
+          <button class="btn btn-ok btnSm" onclick="bumpServePts('home',1)">+</button>
         </div>
       </div>
       <div>
         <div class="teamHeader" id="servePtsAwayName">AWAY</div>
         <div class="teamCounter">
-          <button class="btn" onclick="bumpServePts('away',-1)">−</button>
-          <input id="servePts_away" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServePts('away',1)">+</button>
+          <button class="btn btnSm" onclick="bumpServePts('away',-1)">−</button>
+          <input id="servePts_away" class="scoreInput scoreInputSm" value="0">
+          <button class="btn btn-ok btnSm" onclick="bumpServePts('away',1)">+</button>
         </div>
       </div>
     </div>
@@ -264,15 +284,15 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge-set">S ${i}</span></td>
-        <td><div class="cell">
-          <button class="btn" onclick="window.bumpScore(${i},'home',-1)">−</button>
-          <input class="scoreInput" id="in_home_${i}" type="number" value="0">
-          <button class="btn btn-ok" onclick="window.bumpScore(${i},'home',+1)">+</button>
+        <td><div class="cell tight">
+          <button class="btn btnSm" onclick="window.bumpScore(${i},'home',-1)">−</button>
+          <input class="scoreInput scoreInputSm" id="in_home_${i}" type="number" value="0">
+          <button class="btn btn-ok btnSm" onclick="window.bumpScore(${i},'home',+1)">+</button>
         </div></td>
-        <td><div class="cell">
-          <button class="btn" onclick="window.bumpScore(${i},'away',-1)">−</button>
-          <input class="scoreInput" id="in_away_${i}" type="number" value="0">
-          <button class="btn btn-ok" onclick="window.bumpScore(${i},'away',+1)">+</button>
+        <td><div class="cell tight">
+          <button class="btn btnSm" onclick="window.bumpScore(${i},'away',-1)">−</button>
+          <input class="scoreInput scoreInputSm" id="in_away_${i}" type="number" value="0">
+          <button class="btn btn-ok btnSm" onclick="window.bumpScore(${i},'away',+1)">+</button>
         </div></td>`;
       body.appendChild(tr);
       const ih = $('#in_home_'+i), ia = $('#in_away_'+i);
@@ -288,19 +308,19 @@
     for(let z=1; z<=3; z++){
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>Zona ${z}</td>
+        <td>Z${z}</td>
         <td>
-          <div class="cell">
-            <button class="btn" onclick="window.bumpHeat('home',${z},-1)">−</button>
-            <input class="scoreInput" id="heat_home_${z}" type="number" value="0">
-            <button class="btn btn-ok" onclick="window.bumpHeat('home',${z},+1)">+</button>
+          <div class="cell tight">
+            <button class="btn btnSm" onclick="window.bumpHeat('home',${z},-1)">−</button>
+            <input class="scoreInput scoreInputSm" id="heat_home_${z}" type="number" value="0">
+            <button class="btn btn-ok btnSm" onclick="window.bumpHeat('home',${z},+1)">+</button>
           </div>
         </td>
         <td>
-          <div class="cell">
-            <button class="btn" onclick="window.bumpHeat('away',${z},-1)">−</button>
-            <input class="scoreInput" id="heat_away_${z}" type="number" value="0">
-            <button class="btn btn-ok" onclick="window.bumpHeat('away',${z},+1)">+</button>
+          <div class="cell tight">
+            <button class="btn btnSm" onclick="window.bumpHeat('away',${z},-1)">−</button>
+            <input class="scoreInput scoreInputSm" id="heat_away_${z}" type="number" value="0">
+            <button class="btn btn-ok btnSm" onclick="window.bumpHeat('away',${z},+1)">+</button>
           </div>
         </td>`;
       body.appendChild(tr);
@@ -361,7 +381,7 @@
       };
       for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
       for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0], away:[0,0,0]}; }
-      for(let s=1;s<=5;s++){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+      for(let s=1;s<=5;s'){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
       await set(rootRef, base);
       dbg('Estructura creada');
     } else {
