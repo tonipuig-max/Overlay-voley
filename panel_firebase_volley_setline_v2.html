@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Panel Marcador Vóley (Firebase) — Mobile Tuned</title>
+<title>Panel Marcador Vóley (Firebase) — Mobile v2 + Diagnóstico</title>
 <style>
   :root{
     --bg:#ffffff;
     --card:#f7f8fa;
     --muted:#e3e7ee;
-    --text:#1f2937;
+    --text:#111827;
     --sub:#6b7280;
     --accent:#2563eb;
     --ok:#16a34a;
@@ -23,78 +23,64 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 110px}
-  .card{background:var(--card);border:1px solid var(--muted);border-radius:var(--radius);padding:14px;margin-bottom:14px;overflow:visible}
-  h1{font-size:20px;margin:0 0 8px}
-  h2{font-size:16px;margin:0 0 10px;color:var(--sub)}
+  .wrap{max-width:900px;margin:0 auto;padding:14px 14px 160px}
+  .card{background:var(--card);border:1px solid var(--muted);border-radius:var(--radius);padding:12px;margin-bottom:12px;overflow:visible}
+  h1{font-size:20px;margin:0 0 6px}
+  h2{font-size:16px;margin:0 0 8px;color:var(--sub)}
   label{font-size:13px;color:var(--sub)}
-  input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--input-border);background:var(--input);color:var(--text)}
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .grid{display:grid;gap:10px}
+  input{width:100%;padding:10px;border-radius:12px;border:1px solid var(--input-border);background:var(--input);color:var(--text)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .grid{display:grid;gap:8px}
   .grid2{grid-template-columns:1fr 1fr}
-  .btn{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:8px;
-       width:100%;padding:10px 10px;border-radius:12px;border:1px solid var(--btn-border);
-       background:var(--btn);color:var(--text);font-weight:700;font-size:16px;cursor:pointer}
+  .btn{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+       padding:8px 10px;border-radius:12px;border:1px solid var(--btn-border);
+       background:var(--btn);color:var(--text);font-weight:700;font-size:15px;cursor:pointer;flex:0 0 auto}
   .btn:active{transform:scale(.98)}
   .btn-ok   { background:#e9f7ee; border-color:#bfe8ca; color:#0f5132 }
   .btn-accent{ background:#e8efff; border-color:#c7d5e1; color:#1e40af }
-  .scoreInput{width:64px;text-align:center;font-size:28px;font-weight:900;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid var(--input-border);color:var(--text)}
-  .badge-set{min-width:48px;text-align:center;border:1px solid var(--muted);border-radius:8px;padding:4px 6px;background:#fff;color:var(--text);white-space:nowrap}
-  table{width:100%;border-collapse:separate;border-spacing:0 8px}
-  th,td{padding:8px;vertical-align:middle}
+  .scoreInput{width:56px;text-align:center;font-size:24px;font-weight:900;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid var(--input-border);color:var(--text)}
+  .badge-set{min-width:40px;text-align:center;border:1px solid var(--muted);border-radius:8px;padding:3px 6px;background:#fff;color:var(--text);white-space:nowrap}
+  table{width:100%;border-collapse:separate;border-spacing:0 6px;table-layout:fixed}
+  th,td{padding:6px;vertical-align:middle}
   th{color:var(--sub);font-weight:600;border-bottom:1px solid var(--muted)}
   .cell{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap}
-  .thName{max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
+  .thName{max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .footer{position:fixed;left:0;right:0;bottom:0;padding:8px 14px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
   .status{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .dot{width:10px;height:10px;border-radius:50%;background:var(--danger)}
   .dot.ok{background:var(--ok)}
   .small{font-size:12px;color:var(--sub)}
-  .teamHeader{ font-weight:800; font-size:14px; margin:4px 0 8px; color:var(--text); }
+  .teamHeader{ font-weight:800; font-size:14px; margin:2px 0 6px; color:var(--text); text-align:center; }
 
-  /* One-line centered set selector */
-  .setline{ display:flex; align-items:center; justify-content:center; gap:12px; }
-  .setBtn{ width:auto; min-width:56px; }
-  .setNum{
-    width:auto; min-width:82px; text-align:center;
-    font-size:40px; line-height:1; font-weight:900;
-    padding:8px 14px; border-radius:12px; background:#fff; border:1px solid var(--input-border);
-  }
+  .setline{ display:flex; align-items:center; justify-content:center; gap:10px; }
+  .setBtn{ min-width:44px; }
+  .setNum{ min-width:66px; text-align:center; font-size:32px; line-height:1; font-weight:900; padding:6px 10px; border-radius:12px; background:#fff; border:1px solid var(--input-border); }
 
-  /* Centered columns and horizontal +/- for serve blocks */
-  .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:8px; }
-  .teamCounter{ display:flex; align-items:center; gap:10px; justify-content:center; }
-  .teamCounter .scoreInput{ width:90px; }
-  .teamCounter .btn{ width:auto; min-width:56px; }
+  .centerCols{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .teamCounter{ display:flex; align-items:center; gap:8px; justify-content:center; }
+  .teamCounter .scoreInput{ width:56px; font-size:24px; }
+  .teamCounter .btn{ min-width:44px; }
 
-  /* ============ MOBILE TUNING (iPhone 12 width ~390px) ============ */
+  td .btn{max-width:46px}
+  td .btn.btn-ok{max-width:46px}
+
   @media (max-width: 420px){
-    .wrap{padding:12px 12px 120px}
+    .wrap{padding:12px 12px 170px}
     h1{font-size:18px}
     h2{font-size:15px}
-    .card{padding:12px;border-radius:12px}
-    .grid2{grid-template-columns:1fr} /* stack two columns on small screens */
-    .btn{padding:8px; font-size:15px; width:auto; min-width:44px} /* no full-width to avoid overlap */
-    .btn-accent,.btn-ok{min-width:44px}
-    .scoreInput{width:56px; font-size:24px; padding:6px}
-    .cell{gap:6px}
-    table{border-spacing:0 6px}
-    th,td{padding:6px}
-    .badge-set{min-width:40px; padding:3px 5px}
+    .grid2{grid-template-columns:1fr}
     .thName{max-width:120px}
-
-    /* Set selector smaller */
-    .setline{gap:10px}
-    .setBtn{min-width:44px}
-    .setNum{min-width:66px; font-size:32px; padding:6px 10px}
-
-    /* Serve blocks match sizes of heatmap/points */
-    .centerCols > div{gap:6px}
-    .teamCounter{gap:8px}
-    .teamCounter .scoreInput{width:56px; font-size:24px}
-    .teamCounter .btn{min-width:44px; padding:8px}
-    .teamHeader{font-size:13px}
   }
+
+  /* DIAGNÓSTICO */
+  #diag{position:fixed; left:10px; right:10px; bottom:64px; background:#111827; color:#f9fafb; border:1px solid #374151; border-radius:12px; padding:10px; z-index:9999}
+  #diag h3{margin:0 0 6px; font-size:14px}
+  #diag .row{gap:6px}
+  #dbg{background:#0b1220; color:#c7d2fe; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; padding:8px; border-radius:8px; height:92px; overflow:auto; white-space:pre-wrap}
+  .pill{border-radius:999px; padding:2px 8px; font-size:12px; border:1px solid #374151; background:#1f2937}
+  .pill.ok{background:#052e16; border-color:#14532d; color:#bbf7d0}
+  .pill.err{background:#450a0a; border-color:#7f1d1d; color:#fecaca}
 </style>
 </head>
 <body>
@@ -106,7 +92,7 @@
       <div><label>Equipo HOME</label><input id="nameHome" /></div>
       <div><label>Equipo AWAY</label><input id="nameAway" /></div>
     </div>
-    <div class="small" style="margin-top:8px">Validar con Enter o salir del campo para guardar.</div>
+    <div class="small" style="margin-top:6px">Validar con Enter o salir del campo para guardar.</div>
   </div>
 
   <!-- 2) Marcador -->
@@ -115,7 +101,7 @@
     <table>
       <thead>
         <tr>
-          <th style="width:82px">Set</th>
+          <th style="width:72px">Set</th>
           <th><span id="thHome" class="thName">HOME</span></th>
           <th><span id="thAway" class="thName">AWAY</span></th>
         </tr>
@@ -127,16 +113,16 @@
   <!-- 3) Heatmap -->
   <div class="card">
     <h2>Heatmap (por set)</h2>
-    <div class="setline" style="margin-bottom:8px">
+    <div class="setline" style="margin-bottom:6px">
       <button class="btn setBtn" onclick="heatSetChange(-1)">−</button>
       <input id="heatSet" class="setNum" value="1" readonly />
       <button class="btn btn-ok setBtn" onclick="heatSetChange(1)">+</button>
     </div>
-    <div class="grid grid2" style="margin-top:8px">
+    <div class="grid grid2" style="margin-top:6px">
       <div class="teamHeader" id="heatHomeName">HOME</div>
       <div class="teamHeader" id="heatAwayName">AWAY</div>
     </div>
-    <table style="margin-top:6px">
+    <table style="margin-top:4px">
       <thead><tr><th>Zona</th><th>HOME</th><th>AWAY</th></tr></thead>
       <tbody id="heatBody"></tbody>
     </table>
@@ -145,12 +131,12 @@
   <!-- 4) Errores de saque -->
   <div class="card">
     <h2>Errores de saque por set</h2>
-    <div class="setline" style="margin-bottom:8px">
+    <div class="setline" style="margin-bottom:6px">
       <button class="btn setBtn" onclick="serveErrSetChange(-1)">−</button>
       <input id="serveErrSet" class="setNum" value="1" readonly />
       <button class="btn btn-ok setBtn" onclick="serveErrSetChange(1)">+</button>
     </div>
-    <div class="grid grid2 centerCols">
+    <div class="centerCols">
       <div>
         <div class="teamHeader" id="serveErrHomeName">HOME</div>
         <div class="teamCounter">
@@ -173,12 +159,12 @@
   <!-- 5) Puntos de saque (aces) -->
   <div class="card">
     <h2>Puntos de saque (aces) por set</h2>
-    <div class="setline" style="margin-bottom:8px">
+    <div class="setline" style="margin-bottom:6px">
       <button class="btn setBtn" onclick="servePtsSetChange(-1)">−</button>
       <input id="servePtsSet" class="setNum" value="1" readonly />
       <button class="btn btn-ok setBtn" onclick="servePtsSetChange(1)">+</button>
     </div>
-    <div class="grid grid2 centerCols">
+    <div class="centerCols">
       <div>
         <div class="teamHeader" id="servePtsHomeName">HOME</div>
         <div class="teamCounter">
@@ -220,7 +206,35 @@
   </div>
 </div>
 
+<!-- Diagnóstico fijo -->
+<div id="diag">
+  <div class="row">
+    <span class="pill" id="p-origin">origen</span>
+    <span class="pill" id="p-auth">auth</span>
+    <span class="pill" id="p-db">db</span>
+    <span class="pill" id="p-write">write</span>
+    <span class="pill" id="p-read">read</span>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <button class="btn btn-accent" id="btnDiag">Probar conexión</button>
+    <button class="btn" id="btnHideDiag">Ocultar diagnóstico</button>
+  </div>
+  <div id="dbg" style="margin-top:6px"></div>
+</div>
+
 <script type="module">
+  const dbg = (m)=>{ const el=document.getElementById('dbg'); el.textContent += (new Date().toLocaleTimeString())+' · '+m+'\n'; el.scrollTop=el.scrollHeight; };
+  const setPill = (id, ok, text)=>{
+    const el = document.getElementById(id);
+    el.classList.remove('ok','err'); el.classList.add(ok?'ok':'err');
+    if(text) el.textContent = text;
+  };
+  const origin = location.origin || (location.protocol+'//'+location.host);
+  setPill('p-origin', !!origin, 'origen: '+origin);
+  dbg('Origen: '+origin+' (si es file://, usa un servidor local o Hosting)');
+  window.addEventListener('error', (e)=>{ dbg('JS error: '+(e.message||e.error)); });
+  window.addEventListener('unhandledrejection', (e)=>{ dbg('Promise error: '+(e.reason?.message||e.reason)); });
+
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import { getDatabase, ref, onValue, set, update, get, child } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
@@ -234,7 +248,7 @@
     messagingSenderId: "993690944196",
     appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
   };
-  let db=null, matchPath=null, listenersBound=false;
+  let app=null, db=null, auth=null, matchPath=null, listenersBound=false;
 
   const $ = (s)=>document.querySelector(s);
   const net = (ok,msg)=>{ $('#netdot').classList.toggle('ok', !!ok); $('#netmsg').textContent = msg || (ok?'Conectado':'Desconectado'); if(ok) $('#lastSync').textContent='Actualizado · '+new Date().toLocaleTimeString(); };
@@ -308,15 +322,32 @@
   }
 
   async function connect(){
-    try{ initializeApp(firebaseConfig); }catch(e){}
-    const auth = getAuth(); db = getDatabase();
-    await signInAnonymously(auth);
-    const id = $('#matchId').value.trim() || 'test123';
-    matchPath = 'matches/'+id;
-    net(true,'Conectado');
-    await ensureStructure();
-    if(!listenersBound){ bindListeners(); listenersBound=true; }
-    paintScoreTable(); paintHeatTable();
+    try{ app = initializeApp(firebaseConfig); dbg('Firebase init OK'); }catch(e){ dbg('init ERROR: '+e.message); throw e; }
+    try{
+      auth = getAuth(app);
+      db = getDatabase(app);
+      await signInAnonymously(auth);
+      dbg('Auth anónima OK');
+      setPill('p-auth', true, 'auth: ok');
+    }catch(e){
+      setPill('p-auth', false, 'auth: '+(e.code||e.message));
+      dbg('Auth ERROR: '+(e.code||e.message));
+      throw e;
+    }
+    try{
+      const id = $('#matchId').value.trim() || 'test123';
+      matchPath = 'matches/'+id;
+      await ensureStructure();
+      if(!listenersBound){ bindListeners(); listenersBound=true; }
+      net(true,'Conectado');
+      dbg('DB listeners OK en '+matchPath);
+      setPill('p-db', true, 'db: ok');
+      paintScoreTable(); paintHeatTable();
+    }catch(e){
+      setPill('p-db', false, 'db: '+(e.code||e.message));
+      dbg('DB ERROR: '+(e.code||e.message));
+      throw e;
+    }
   }
 
   async function ensureStructure(){
@@ -330,8 +361,11 @@
       };
       for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
       for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0], away:[0,0,0]}; }
-      for(let s=1;s<=5;s'){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+      for(let s=1;s<=5;s++){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
       await set(rootRef, base);
+      dbg('Estructura creada');
+    } else {
+      dbg('Estructura existente');
     }
   }
 
@@ -396,17 +430,17 @@
     const id = (side==='home'?'in_home_':'in_away_')+setNo;
     const el = $('#'+id); const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const path = '/sets/'+setNo+'/'+side; mark(path);
-    update(ref(db, matchPath+'/sets/'+setNo), { [side]: clamp0(el.value) }).catch(console.error);
+    update(ref(db, matchPath+'/sets/'+setNo), { [side]: clamp0(el.value) }).catch(e=>dbg('updateScore ERROR: '+(e.code||e.message)));
   };
   function manualScore(setNo, side, raw){
     const v = clamp0(raw); const path='/sets/'+setNo+'/'+side; mark(path);
-    update(ref(db, matchPath+'/sets/'+setNo), { [side]: v }).catch(console.error);
+    update(ref(db, matchPath+'/sets/'+setNo), { [side]: v }).catch(e=>dbg('manualScore ERROR: '+(e.code||e.message)));
   }
 
   function saveTeamNames(){
     const home = $('#nameHome').value.trim();
     const away = $('#nameAway').value.trim();
-    update(ref(db, matchPath+'/teams'), { home, away }).catch(console.error);
+    update(ref(db, matchPath+'/teams'), { home, away }).catch(e=>dbg('saveTeamNames ERROR: '+(e.code||e.message)));
   }
   $('#nameHome').addEventListener('blur', saveTeamNames);
   $('#nameAway').addEventListener('blur', saveTeamNames);
@@ -419,7 +453,7 @@
     if(next===cur) return;
     $('#heatSet').value = next; $('#serveErrSet').value = next; $('#servePtsSet').value = next;
     const path='/heat/setNumber'; mark(path);
-    set(ref(db, matchPath+path), next);
+    set(ref(db, matchPath+path), next).then(()=>dbg('heat setNumber='+next)).catch(e=>dbg('heatSet ERROR: '+(e.code||e.message)));
     refreshHeatRow(next); refreshServeErr(next); refreshServePts(next);
   }
   window.heatSetChange = heatSetChange;
@@ -432,7 +466,8 @@
         if(eh && document.activeElement!==eh) eh.value = clamp0(v.home?.[z-1] ?? 0);
         if(ea && document.activeElement!==ea) ea.value = clamp0(v.away?.[z-1] ?? 0);
       }
-    });
+      dbg('heat row '+n+' refrescado');
+    }).catch(e=>dbg('refreshHeatRow ERROR: '+(e.code||e.message)));
   }
 
   window.bumpHeat = (side, zone, delta)=>{
@@ -440,12 +475,12 @@
     const el = $('#'+id); const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const idx = zone-1;
     const path = '/heat/sets/'+($('#heatSet').value||1)+'/'+side+'/'+idx; mark(path);
-    set(ref(db, matchPath+path), next).catch(console.error);
+    set(ref(db, matchPath+path), next).then(()=>dbg('heat '+side+' z'+zone+'='+next)).catch(e=>dbg('bumpHeat ERROR: '+(e.code||e.message)));
   };
   function manualHeat(side, zone, raw){
     const v = clamp0(raw); const idx=zone-1;
     const path = '/heat/sets/'+($('#heatSet').value||1)+'/'+side+'/'+idx; mark(path);
-    set(ref(db, matchPath+path), v).catch(console.error);
+    set(ref(db, matchPath+path), v).catch(e=>dbg('manualHeat ERROR: '+(e.code||e.message)));
   }
 
   function serveErrSetChange(d){
@@ -454,7 +489,7 @@
     if(next===cur) return;
     $('#serveErrSet').value = next; refreshServeErr(next);
     const path='/heat/setNumber'; mark(path);
-    set(ref(db, matchPath+path), next);
+    set(ref(db, matchPath+path), next).catch(e=>dbg('serveErr setNumber ERROR: '+(e.code||e.message)));
   }
   window.serveErrSetChange = serveErrSetChange;
   function refreshServeErr(n){
@@ -463,22 +498,23 @@
       const eh = $('#serveErr_home'), ea = $('#serveErr_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
-    });
+      dbg('serveErr '+n+' refrescado');
+    }).catch(e=>dbg('refreshServeErr ERROR: '+(e.code||e.message)));
   }
   window.bumpServeErr = (side, delta)=>{
     const id = 'serveErr_'+side; const el = $('#'+id);
     const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const setNo = clamp0($('#serveErrSet').value)||1;
     const path = '/serveErrors/'+setNo+'/'+side; mark(path);
-    set(ref(db, matchPath+path), next).catch(console.error);
+    set(ref(db, matchPath+path), next).then(()=>dbg('serveErr '+side+'='+next)).catch(e=>dbg('bumpServeErr ERROR: '+(e.code||e.message)));
   };
   $('#serveErr_home').addEventListener('change', ()=>{
     const v = clamp0($('#serveErr_home').value); const setNo=clamp0($('#serveErrSet').value)||1;
-    const path='/serveErrors/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/serveErrors/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v).catch(e=>dbg('serveErr_home input ERROR: '+(e.code||e.message)));
   });
   $('#serveErr_away').addEventListener('change', ()=>{
     const v = clamp0($('#serveErr_away').value); const setNo=clamp0($('#serveErrSet').value)||1;
-    const path='/serveErrors/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/serveErrors/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v).catch(e=>dbg('serveErr_away input ERROR: '+(e.code||e.message)));
   });
 
   function servePtsSetChange(d){
@@ -487,7 +523,7 @@
     if(next===cur) return;
     $('#servePtsSet').value = next; refreshServePts(next);
     const path='/heat/setNumber'; mark(path);
-    set(ref(db, matchPath+path), next);
+    set(ref(db, matchPath+path), next).catch(e=>dbg('servePts setNumber ERROR: '+(e.code||e.message)));
   }
   window.servePtsSetChange = servePtsSetChange;
   function refreshServePts(n){
@@ -496,25 +532,29 @@
       const eh = $('#servePts_home'), ea = $('#servePts_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
-    });
+      dbg('servePts '+n+' refrescado');
+    }).catch(e=>dbg('refreshServePts ERROR: '+(e.code||e.message)));
   }
   window.bumpServePts = (side, delta)=>{
     const id = 'servePts_'+side; const el = $('#'+id);
     const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const setNo = clamp0($('#servePtsSet').value)||1;
     const path = '/servePoints/'+setNo+'/'+side; mark(path);
-    set(ref(db, matchPath+path), next).catch(console.error);
+    set(ref(db, matchPath+path), next).then(()=>dbg('servePts '+side+'='+next)).catch(e=>dbg('bumpServePts ERROR: '+(e.code||e.message)));
   };
   $('#servePts_home').addEventListener('change', ()=>{
     const v = clamp0($('#servePts_home').value); const setNo=clamp0($('#servePtsSet').value)||1;
-    const path='/servePoints/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/servePoints/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v).catch(e=>dbg('servePts_home input ERROR: '+(e.code||e.message)));
   });
   $('#servePts_away').addEventListener('change', ()=>{
     const v = clamp0($('#servePts_away').value); const setNo=clamp0($('#servePtsSet').value)||1;
-    const path='/servePoints/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/servePoints/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v).catch(e=>dbg('servePts_away input ERROR: '+(e.code||e.message)));
   });
 
-  document.getElementById('btnConnect').addEventListener('click', connect);
+  // Botones
+  document.getElementById('btnConnect').addEventListener('click', async ()=>{
+    try{ await connect(); dbg('Conexión completada'); }catch(e){ dbg('Conexión fallida'); }
+  });
   document.getElementById('btnReset').addEventListener('click', async ()=>{
     if(!db||!matchPath) return alert('Conecta primero.');
     if(!confirm('¿Resetear a 0-0 todos los sets, heatmap, errores y aces?')) return;
@@ -522,10 +562,32 @@
     const rootRef = ref(db, matchPath);
     const base = {teams:{home:'HOME',away:'AWAY'}, sets:{}, heat:{setNumber:1,sets:{}}, serveErrors:{}, servePoints:{}};
     for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
-    for(let s=1;s<=5)s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+    for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
     await set(rootRef, base);
+    dbg('Reset completado');
   });
 
+  // Diag
+  document.getElementById('btnDiag').addEventListener('click', async ()=>{
+    dbg('=== PRUEBA DE CONEXIÓN ===');
+    try{
+      await connect();
+      setPill('p-auth', true, 'auth: ok');
+      setPill('p-db', true, 'db: ok');
+      const testRef = ref(db, (matchPath||'matches/test123')+'/__diag');
+      await set(testRef, {t: Date.now()}); setPill('p-write', true, 'write: ok'); dbg('write OK');
+      const snap = await get(testRef);
+      setPill('p-read', snap.exists(), 'read: '+(snap.exists()?'ok':'fail'));
+      dbg('read '+(snap.exists()?'OK':'FAIL'));
+    }catch(e){
+      dbg('DIAG ERROR: '+(e.code||e.message));
+    }
+  });
+  document.getElementById('btnHideDiag').addEventListener('click', ()=>{
+    document.getElementById('diag').style.display='none';
+  });
+
+  // Pintar tablas iniciales sin conexión
   paintScoreTable(); paintHeatTable();
 </script>
 
