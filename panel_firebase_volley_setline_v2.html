@@ -80,6 +80,16 @@
   }
 
   .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
+
+  /* === Compact fix for iPhone 12 overlap (no logic changes) === */
+  .points .cell, .heatmap .cell{ display:grid; grid-template-columns: 48px minmax(56px, auto) 48px; }
+  @media (max-width:420px){
+    .points th, .points td, .heatmap th, .heatmap td{ padding-left:6px; padding-right:6px }
+    .points .cell, .heatmap .cell{ grid-template-columns: 44px minmax(52px, auto) 44px; gap:6px }
+    .points .cell .btn, .heatmap .cell .btn{ min-width:44px; padding:6px 6px; font-size:13px }
+    .points .cell .scoreInput, .heatmap .cell .scoreInput{ width:52px; font-size:20px; padding:5px 4px }
+  }
+
 </style>
 </head>
 <body>
