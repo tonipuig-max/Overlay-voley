@@ -3,130 +3,48 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Panel Marcador Vóley (Firebase) — Layout Fix (mantiene funcionalidades)</title>
+<title>Panel Vóley — iPhone12 Card Fix + Diagnóstico</title>
 <style>
-  :root{
-    --bg:#ffffff;
-    --card:#f7f8fa;
-    --muted:#e3e7ee;
-    --text:#1f2937;
-    --sub:#6b7280;
-    --accent:#2563eb;
-    --ok:#16a34a;
-    --warn:#f59e0b;
-    --danger:#dc2626;
-    --radius:14px;
-    --input:#ffffff;
-    --input-border:#d1d5db;
-    --btn:#eef2f7;
-    --btn-border:#cbd5e1;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 100px}
+  :root{--bg:#ffffff; --card:#f7f8fa; --muted:#e3e7ee; --text:#1f2937; --sub:#6b7280;
+        --accent:#2563eb; --ok:#16a34a; --danger:#dc2626; --radius:14px; --input:#ffffff; --input-border:#d1d5db;
+        --btn:#eef2f7; --btn-border:#cbd5e1;}
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 120px}
   .card{background:var(--card);border:1px solid var(--muted);border-radius:var(--radius);padding:14px;margin-bottom:14px}
-  h1{font-size:20px;margin:0 0 8px}
-  h2{font-size:16px;margin:0 0 10px;color:var(--sub)}
-  label{font-size:13px;color:var(--sub)}
+  h1{font-size:20px;margin:0 0 8px} h2{font-size:16px;margin:0 0 10px;color:var(--sub)} label{font-size:13px;color:var(--sub)}
   input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--input-border);background:var(--input);color:var(--text)}
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .grid{display:grid;gap:10px}
-  .grid2{grid-template-columns:1fr 1fr}
-
-  .btn{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:8px;
-       width:100%;padding:10px 10px;border-radius:12px;border:1px solid var(--btn-border);
-       background:var(--btn);color:var(--text);font-weight:700;font-size:16px;cursor:pointer}
-  .btn:active{transform:scale(.98)}
-  .btn-ok   { background:#e9f7ee; border-color:#bfe8ca; color:#0f5132 }
-  .btn-accent{ background:#e8efff; border-color:#c7d5e1; color:#1e40af }
-
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap} .grid{display:grid;gap:10px} .grid2{grid-template-columns:1fr 1fr}
+  .btn{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 10px;border-radius:12px;border:1px solid var(--btn-border);background:var(--btn);color:var(--text);font-weight:700;font-size:16px;cursor:pointer}
+  .btn:active{transform:scale(.98)} .btn-ok{ background:#e9f7ee; border-color:#bfe8ca; color:#0f5132 } .btn-accent{ background:#e8efff; border-color:#c7d5e1; color:#1e40af }
   .scoreInput{width:64px;text-align:center;font-size:28px;font-weight:900;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid var(--input-border);color:var(--text)}
   .badge-set{min-width:48px;text-align:center;border:1px solid var(--muted);border-radius:8px;padding:4px 6px;background:#fff;color:var(--text);white-space:nowrap}
-  table{width:100%;border-collapse:separate;border-spacing:0 8px}
-  th,td{padding:8px}
-  th{color:var(--sub);font-weight:600;border-bottom:1px solid var(--muted)}
-  .cell{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap}
-  .thName{max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-
-  .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
-  .status{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .dot{width:10px;height:10px;border-radius:50%;background:var(--danger)}
-  .dot.ok{background:var(--ok)}
-  .small{font-size:12px;color:var(--sub)}
-  .teamHeader{ font-weight:800; font-size:14px; margin:4px 0 8px; color:var(--text); text-align:center; }
-
-  /* Set selector in single centered line */
-  .setline{ display:flex; align-items:center; justify-content:center; gap:12px; }
-  .setBtn{ width:auto; min-width:56px; }
-  .setNum{ width:auto; min-width:82px; text-align:center; font-size:40px; line-height:1; font-weight:900; padding:8px 14px; border-radius:12px; background:#fff; border:1px solid var(--input-border); }
-
-  /* Center columns in serve blocks */
-  .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:8px; }
-  .teamCounter{ display:flex; align-items:center; gap:10px; }
-  .teamCounter .scoreInput{ width:90px; }
-  .teamCounter .btn{ width:auto; min-width:56px; }
-
-  /* === Compact design tweaks (visual only) === */
-  /* Puntos por set: reducir un poco botones/inputs para que nada se solape dentro del card gris */
-  .points .cell .btn{ width:auto; min-width:50px; padding:8px 8px; font-size:15px; }
-  .points .cell .scoreInput{ width:58px; font-size:24px; padding:6px 6px; }
-  .points thead th:first-child{ width:78px; }
-
-  /* Heatmap/saques: aplicar mismo tamaño compacto a los controles dentro de tablas/contadores */
-  .heatmap .cell .btn,
-  .serveErr .teamCounter .btn,
-  .servePts .teamCounter .btn{ width:auto; min-width:50px; padding:8px 8px; font-size:15px; }
-  .heatmap .cell .scoreInput,
-  .serveErr .teamCounter .scoreInput,
-  .servePts .teamCounter .scoreInput{ width:58px; font-size:24px; padding:6px 6px; }
-  .heatmap thead th:first-child{ width:70px; }
-
-  /* iPhone 12 (<=420px): micro ajustes extra */
-  @media (max-width: 420px){
-    .points .cell .btn,
-    .heatmap .cell .btn,
-    .serveErr .teamCounter .btn,
-    .servePts .teamCounter .btn{ min-width:46px; padding:7px 8px; font-size:14px; }
-    .points .cell .scoreInput,
-    .heatmap .cell .scoreInput,
-    .serveErr .teamCounter .scoreInput,
-    .servePts .teamCounter .scoreInput{ width:54px; font-size:22px; }
-    .points thead th:first-child{ width:74px; }
-    .setNum{ min-width:76px; font-size:36px; padding:8px 12px }
-    .teamCounter .scoreInput{ width:78px; } /* para inputs grandes no compactados */
-    .teamCounter .btn{ min-width:50px; }
-  }
+  table{width:100%;border-collapse:separate;border-spacing:0 8px;table-layout:fixed} th,td{padding:8px} th{color:var(--sub);font-weight:600;border-bottom:1px solid var(--muted)}
+  .cell{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap} .thName{max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .setline{ display:flex; align-items:center; justify-content:center; gap:12px } .setBtn{ width:auto; min-width:56px } .setNum{ width:auto; min-width:82px; text-align:center; font-size:40px; line-height:1; font-weight:900; padding:8px 14px; border-radius:12px; background:#fff; border:1px solid var(--input-border) }
+  .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:8px } .teamHeader{ font-weight:800; font-size:14px; margin:4px 0 8px; color:var(--text); text-align:center }
+  .teamCounter{ display:flex; align-items:center; gap:10px } .teamCounter .scoreInput{ width:90px } .teamCounter .btn{ width:auto; min-width:56px }
+  @media (max-width:420px){ .cell{ gap:6px } .btn{ min-width:46px; padding:8px 8px; font-size:14px } .scoreInput{ width:56px; font-size:24px; padding:6px 6px } .setNum{ min-width:76px; font-size:36px; padding:8px 12px } .teamCounter .scoreInput{ width:78px } }
+  /* Logger flotante */
+  #debug{position:fixed;left:0;right:0;bottom:44px;margin:0 8px;border:1px solid #e5e7eb;background:#fff;border-radius:10px;max-height:40vh;overflow:auto;box-shadow:0 10px 24px rgba(0,0,0,.08);font-family:ui-monospace,monospace;font-size:12px;padding:8px 10px;display:none}
+  #debug.show{display:block}
 </style>
 </head>
 <body>
 <div class="wrap">
-
-  <!-- 1) Nombres equipos -->
   <div class="card">
     <div class="grid grid2">
       <div><label>Equipo HOME</label><input id="nameHome" /></div>
       <div><label>Equipo AWAY</label><input id="nameAway" /></div>
     </div>
-    <div class="small" style="margin-top:8px">Validar con Enter o salir del campo para guardar.</div>
+    <div style="font-size:12px;color:#6b7280;margin-top:8px">Validar con Enter o salir del campo para guardar.</div>
   </div>
 
-  <!-- 2) Marcador -->
-  <div class="card points">
+  <div class="card">
     <h2>Puntos por set</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Set</th>
-          <th><span id="thHome" class="thName">HOME</span></th>
-          <th><span id="thAway" class="thName">AWAY</span></th>
-        </tr>
-      </thead>
-      <tbody id="pointsBody"></tbody>
-    </table>
+    <table><thead><tr><th>Set</th><th><span id="thHome" class="thName">HOME</span></th><th><span id="thAway" class="thName">AWAY</span></th></tr></thead><tbody id="pointsBody"></tbody></table>
   </div>
 
-  <!-- 3) Heatmap -->
-  <div class="card heatmap">
+  <div class="card">
     <h2>Heatmap (por set)</h2>
     <div class="setline" style="margin-bottom:8px">
       <button class="btn setBtn" onclick="heatSetChange(-1)">−</button>
@@ -137,14 +55,10 @@
       <div class="teamHeader" id="heatHomeName">HOME</div>
       <div class="teamHeader" id="heatAwayName">AWAY</div>
     </div>
-    <table style="margin-top:6px">
-      <thead><tr><th>Zona</th><th>HOME</th><th>AWAY</th></tr></thead>
-      <tbody id="heatBody"></tbody>
-    </table>
+    <table style="margin-top:6px"><thead><tr><th>Zona</th><th>HOME</th><th>AWAY</th></tr></thead><tbody id="heatBody"></tbody></table>
   </div>
 
-  <!-- 4) Errores de saque -->
-  <div class="card serveErr">
+  <div class="card">
     <h2>Errores de saque por set</h2>
     <div class="setline" style="margin-bottom:8px">
       <button class="btn setBtn" onclick="serveErrSetChange(-1)">−</button>
@@ -152,27 +66,12 @@
       <button class="btn btn-ok setBtn" onclick="serveErrSetChange(1)">+</button>
     </div>
     <div class="grid grid2 centerCols">
-      <div>
-        <div class="teamHeader" id="serveErrHomeName">HOME</div>
-        <div class="teamCounter">
-          <button class="btn" onclick="bumpServeErr('home',-1)">−</button>
-          <input id="serveErr_home" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServeErr('home',1)">+</button>
-        </div>
-      </div>
-      <div>
-        <div class="teamHeader" id="serveErrAwayName">AWAY</div>
-        <div class="teamCounter">
-          <button class="btn" onclick="bumpServeErr('away',-1)">−</button>
-          <input id="serveErr_away" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServeErr('away',1)">+</button>
-        </div>
-      </div>
+      <div><div class="teamHeader" id="serveErrHomeName">HOME</div><div class="teamCounter"><button class="btn" onclick="bumpServeErr('home',-1)">−</button><input id="serveErr_home" class="scoreInput" value="0"><button class="btn btn-ok" onclick="bumpServeErr('home',1)">+</button></div></div>
+      <div><div class="teamHeader" id="serveErrAwayName">AWAY</div><div class="teamCounter"><button class="btn" onclick="bumpServeErr('away',-1)">−</button><input id="serveErr_away" class="scoreInput" value="0"><button class="btn btn-ok" onclick="bumpServeErr('away',1)">+</button></div></div>
     </div>
   </div>
 
-  <!-- 5) Puntos de saque (aces) -->
-  <div class="card servePts">
+  <div class="card">
     <h2>Puntos de saque (aces) por set</h2>
     <div class="setline" style="margin-bottom:8px">
       <button class="btn setBtn" onclick="servePtsSetChange(-1)">−</button>
@@ -180,26 +79,11 @@
       <button class="btn btn-ok setBtn" onclick="servePtsSetChange(1)">+</button>
     </div>
     <div class="grid grid2 centerCols">
-      <div>
-        <div class="teamHeader" id="servePtsHomeName">HOME</div>
-        <div class="teamCounter">
-          <button class="btn" onclick="bumpServePts('home',-1)">−</button>
-          <input id="servePts_home" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServePts('home',1)">+</button>
-        </div>
-      </div>
-      <div>
-        <div class="teamHeader" id="servePtsAwayName">AWAY</div>
-        <div class="teamCounter">
-          <button class="btn" onclick="bumpServePts('away',-1)">−</button>
-          <input id="servePts_away" class="scoreInput" value="0">
-          <button class="btn btn-ok" onclick="bumpServePts('away',1)">+</button>
-        </div>
-      </div>
+      <div><div class="teamHeader" id="servePtsHomeName">HOME</div><div class="teamCounter"><button class="btn" onclick="bumpServePts('home',-1)">−</button><input id="servePts_home" class="scoreInput" value="0"><button class="btn btn-ok" onclick="bumpServePts('home',1)">+</button></div></div>
+      <div><div class="teamHeader" id="servePtsAwayName">AWAY</div><div class="teamCounter"><button class="btn" onclick="bumpServePts('away',-1)">−</button><input id="servePts_away" class="scoreInput" value="0"><button class="btn btn-ok" onclick="bumpServePts('away',1)">+</button></div></div>
     </div>
   </div>
 
-  <!-- 6) Conexión (AL FINAL) -->
   <div class="card">
     <h1>Conexión</h1>
     <div class="grid grid2">
@@ -207,36 +91,48 @@
       <div class="row">
         <button class="btn btn-accent" id="btnConnect">Conectar</button>
         <button class="btn" id="btnReset">Reset 0-0</button>
+        <button class="btn" id="btnToggleLog">Mostrar log</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Footer estado -->
-<div class="footer">
-  <div class="status">
-    <div id="netdot" class="dot"></div>
-    <div id="netmsg" class="small">Desconectado</div>
-    <div class="small" id="lastSync"></div>
+<div class="footer" style="position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <div id="netdot" style="width:10px;height:10px;border-radius:50%;background:#dc2626"></div>
+    <div id="netmsg" style="font-size:12px;color:#6b7280">Desconectado</div>
+    <div id="lastSync" style="font-size:12px;color:#6b7280"></div>
   </div>
 </div>
 
+<pre id="debug"></pre>
+
 <script type="module">
-  /* === JS SIN CAMBIOS FUNCIONALES (idéntico a tu versión de referencia) === */
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import { getDatabase, ref, onValue, set, update, get, child } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-  const firebaseConfig = {"apiKey": "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ", "authDomain": "supervolei-panel-final.firebaseapp.com", "databaseURL": "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app", "projectId": "supervolei-panel-final", "storageBucket": "supervolei-panel-final.firebasestorage.app", "messagingSenderId": "993690944196", "appId": "1:993690944196:web:1a7ea451c03201e6f6ff91"};
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+    authDomain: "supervolei-panel-final.firebaseapp.com",
+    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "supervolei-panel-final",
+    storageBucket: "supervolei-panel-final.firebasestorage.app",
+    messagingSenderId: "993690944196",
+    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
+  };
+
   let db=null, matchPath=null, listenersBound=false;
-
   const $ = (s)=>document.querySelector(s);
-  const net = (ok,msg)=>{ $('#netdot').classList.toggle('ok', !!ok); $('#netmsg').textContent = msg || (ok?'Conectado':'Desconectado'); if(ok) $('#lastSync').textContent='Actualizado · '+new Date().toLocaleTimeString(); };
-  function clamp0(n){ n=parseInt(n||0,10); return isNaN(n)?0:Math.max(0,n); }
+  const logBox = $('#debug');
+  const showLog = (on)=> logBox.classList.toggle('show', !!on);
+  const log = (...args)=>{ const line = args.map(a=> typeof a==='string' ? a : JSON.stringify(a)).join(' '); logBox.textContent += line + "\\n"; if(!logBox.classList.contains('show')) showLog(true); logBox.scrollTop = logBox.scrollHeight; console.log(...args); };
+  document.getElementById('btnToggleLog').addEventListener('click', ()=> showLog(!logBox.classList.contains('show')) );
 
-  const writeMark = new Map();
-  function mark(path){ writeMark.set(path, Date.now()); }
-  function isOwn(path,ms=800){ const t=writeMark.get(path); return t && (Date.now()-t)<ms; }
+  const net = (ok,msg)=>{ const d=$('#netdot'); d.style.background=ok?'#16a34a':'#dc2626'; $('#netmsg').textContent = msg || (ok?'Conectado':'Desconectado'); if(ok) $('#lastSync').textContent='Actualizado · '+new Date().toLocaleTimeString(); };
+
+  function clamp0(n){ n=parseInt(n||0,10); return isNaN(n)?0:Math.max(0,n); }
+  const writeMark = new Map(); function mark(path){ writeMark.set(path, Date.now()); } function isOwn(path,ms=800){ const t=writeMark.get(path); return t && (Date.now()-t)<ms; }
 
   function paintScoreTable(){
     const body = $('#pointsBody'); body.innerHTML='';
@@ -269,20 +165,8 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>Zona ${z}</td>
-        <td>
-          <div class="cell">
-            <button class="btn" onclick="window.bumpHeat('home',${z},-1)">−</button>
-            <input class="scoreInput" id="heat_home_${z}" type="number" value="0">
-            <button class="btn btn-ok" onclick="window.bumpHeat('home',${z},+1)">+</button>
-          </div>
-        </td>
-        <td>
-          <div class="cell">
-            <button class="btn" onclick="window.bumpHeat('away',${z},-1)">−</button>
-            <input class="scoreInput" id="heat_away_${z}" type="number" value="0">
-            <button class="btn btn-ok" onclick="window.bumpHeat('away',${z},+1)">+</button>
-          </div>
-        </td>`;
+        <td><div class="cell"><button class="btn" onclick="window.bumpHeat('home',${z},-1)">−</button><input class="scoreInput" id="heat_home_${z}" type="number" value="0"><button class="btn btn-ok" onclick="window.bumpHeat('home',${z},+1)">+</button></div></td>
+        <td><div class="cell"><button class="btn" onclick="window.bumpHeat('away',${z},-1)">−</button><input class="scoreInput" id="heat_away_${z}" type="number" value="0"><button class="btn btn-ok" onclick="window.bumpHeat('away',${z},+1)">+</button></div></td>`;
       body.appendChild(tr);
       const ih = $('#heat_home_'+z), ia = $('#heat_away_'+z);
       ih.addEventListener('change', ()=>manualHeat('home',z, ih.value));
@@ -302,30 +186,49 @@
   }
 
   async function connect(){
-    try{ initializeApp(firebaseConfig); }catch(e){}
-    const auth = getAuth(); db = getDatabase();
-    await signInAnonymously(auth);
-    const id = $('#matchId').value.trim() || 'test123';
-    matchPath = 'matches/'+id;
-    net(true,'Conectado');
-    await ensureStructure();
-    if(!listenersBound){ bindListeners(); listenersBound=true; }
-    paintScoreTable(); paintHeatTable();
+    try{
+      initializeApp(firebaseConfig);
+      log('init OK', firebaseConfig.projectId);
+    }catch(e){
+      log('init ERROR', e.message || e);
+    }
+    try{
+      const auth = getAuth(); db = getDatabase();
+      log('auth start (anonymous)');
+      await signInAnonymously(auth);
+      log('auth OK');
+    }catch(e){
+      log('auth ERROR', e.code || '', e.message || e);
+      net(false, 'Auth error');
+      return;
+    }
+    try{
+      const id = $('#matchId').value.trim() || 'test123';
+      matchPath = 'matches/'+id;
+      net(true,'Conectado'); log('db ready, path', matchPath);
+      await ensureStructure();
+      log('ensureStructure OK');
+      if(!listenersBound){ bindListeners(); listenersBound=true; log('listeners bound'); }
+      paintScoreTable(); paintHeatTable();
+    }catch(e){
+      log('post-auth ERROR', e.message || e);
+    }
   }
 
   async function ensureStructure(){
-    const rootRef = ref(db, matchPath);
-    const snap = await get(rootRef);
-    if(!snap.exists()){
-      const base = {
-        teams:{home:'HOME', away:'AWAY'},
-        sets:{}, heat:{ setNumber:1, sets:{} },
-        serveErrors:{}, servePoints:{}
-      };
-      for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
-      for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0], away:[0,0,0]}; }
-      for(let s=1;s<=5;s++){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
-      await set(rootRef, base);
+    try{
+      const rootRef = ref(db, matchPath);
+      const snap = await get(rootRef);
+      if(!snap.exists()){
+        const base = { teams:{home:'HOME', away:'AWAY'}, sets:{}, heat:{ setNumber:1, sets:{} }, serveErrors:{}, servePoints:{} };
+        for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
+        for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0], away:[0,0,0]}; }
+        for(let s=1;s<=5;s++){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+        await set(rootRef, base);
+      }
+    }catch(e){
+      log('ensureStructure ERROR', e.code || '', e.message || e);
+      throw e;
     }
   }
 
@@ -334,27 +237,25 @@
       const v = s.val() || {}; setTeamHeaders(v.home, v.away);
       if(document.activeElement !== $('#nameHome')) $('#nameHome').value = v.home || '';
       if(document.activeElement !== $('#nameAway')) $('#nameAway').value = v.away || '';
-    });
+    }, (e)=>log('teams listener ERROR', e.code || '', e.message || e));
 
     for(let i=1;i<=5;i++){
       onValue(ref(db, matchPath+'/sets/'+i+'/home'), (s)=>{
         const path = '/sets/'+i+'/home'; if(isOwn(path)) return;
         const val = clamp0(s.val()); const el = $('#in_home_'+i); if(el && document.activeElement!==el) el.value=val;
-      });
+      }, (e)=>log('sets/home listener ERROR', i, e.code || '', e.message || e));
       onValue(ref(db, matchPath+'/sets/'+i+'/away'), (s)=>{
         const path = '/sets/'+i+'/away'; if(isOwn(path)) return;
         const val = clamp0(s.val()); const el = $('#in_away_'+i); if(el && document.activeElement!==el) el.value=val;
-      });
+      }, (e)=>log('sets/away listener ERROR', i, e.code || '', e.message || e));
     }
 
     onValue(ref(db, matchPath+'/heat/setNumber'), (s)=>{
       const path='/heat/setNumber'; if(isOwn(path)) return;
       const n = clamp0(s.val()) || 1;
-      $('#heatSet').value = n;
-      $('#serveErrSet').value = n;
-      $('#servePtsSet').value = n;
+      $('#heatSet').value = n; $('#serveErrSet').value = n; $('#servePtsSet').value = n;
       refreshHeatRow(n); refreshServeErr(n); refreshServePts(n);
-    });
+    }, (e)=>log('heat setNumber listener ERROR', e.code || '', e.message || e));
 
     onValue(ref(db, matchPath+'/heat/sets'), (s)=>{
       const all = s.val() || {};
@@ -365,7 +266,7 @@
         if(eh && document.activeElement!==eh) eh.value = clamp0(H.home?.[z-1] ?? 0);
         if(ea && document.activeElement!==ea) ea.value = clamp0(H.away?.[z-1] ?? 0);
       }
-    });
+    }, (e)=>log('heat/sets listener ERROR', e.code || '', e.message || e));
 
     onValue(ref(db, matchPath+'/serveErrors'), (s)=>{
       const all = s.val() || {};
@@ -374,7 +275,8 @@
       const eh = $('#serveErr_home'), ea = $('#serveErr_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
-    });
+    }, (e)=>log('serveErrors listener ERROR', e.code || '', e.message || e));
+
     onValue(ref(db, matchPath+'/servePoints'), (s)=>{
       const all = s.val() || {};
       const n = clamp0($('#servePtsSet').value) || 1;
@@ -382,25 +284,25 @@
       const eh = $('#servePts_home'), ea = $('#servePts_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
-    });
+    }, (e)=>log('servePoints listener ERROR', e.code || '', e.message || e));
   }
 
-  // ====== Escribir ======
+  // Escrituras
   window.bumpScore = (setNo, side, delta)=>{
     const id = (side==='home'?'in_home_':'in_away_')+setNo;
     const el = $('#'+id); const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const path = '/sets/'+setNo+'/'+side; mark(path);
-    update(ref(db, matchPath+'/sets/'+setNo), { [side]: clamp0(el.value) }).catch(console.error);
+    update(ref(db, matchPath+'/sets/'+setNo), { [side]: clamp0(el.value) }).catch(e=>log('update score ERROR', e.code||'', e.message||e));
   };
   function manualScore(setNo, side, raw){
     const v = clamp0(raw); const path='/sets/'+setNo+'/'+side; mark(path);
-    update(ref(db, matchPath+'/sets/'+setNo), { [side]: v }).catch(console.error);
+    update(ref(db, matchPath+'/sets/'+setNo), { [side]: v }).catch(e=>log('manual score ERROR', e.code||'', e.message||e));
   }
 
   function saveTeamNames(){
     const home = $('#nameHome').value.trim();
     const away = $('#nameAway').value.trim();
-    update(ref(db, matchPath+'/teams'), { home, away }).catch(console.error);
+    update(ref(db, matchPath+'/teams'), { home, away }).catch(e=>log('saveTeamNames ERROR', e.code||'', e.message||e));
   }
   $('#nameHome').addEventListener('blur', saveTeamNames);
   $('#nameAway').addEventListener('blur', saveTeamNames);
@@ -413,7 +315,7 @@
     if(next===cur) return;
     $('#heatSet').value = next; $('#serveErrSet').value = next; $('#servePtsSet').value = next;
     const path='/heat/setNumber'; mark(path);
-    set(ref(db, matchPath+path), next);
+    set(ref(db, matchPath+path), next).catch(e=>log('set heat setNumber ERROR', e.code||'', e.message||e));
     refreshHeatRow(next); refreshServeErr(next); refreshServePts(next);
   }
   window.heatSetChange = heatSetChange;
@@ -426,7 +328,7 @@
         if(eh && document.activeElement!==eh) eh.value = clamp0(v.home?.[z-1] ?? 0);
         if(ea && document.activeElement!==ea) ea.value = clamp0(v.away?.[z-1] ?? 0);
       }
-    });
+    }).catch(e=>log('refreshHeatRow ERROR', e.code||'', e.message||e));
   }
 
   window.bumpHeat = (side, zone, delta)=>{
@@ -434,12 +336,12 @@
     const el = $('#'+id); const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const idx = zone-1;
     const path = '/heat/sets/'+($('#heatSet').value||1)+'/'+side+'/'+idx; mark(path);
-    set(ref(db, matchPath+path), next).catch(console.error);
+    set(ref(db, matchPath+path), next).catch(e=>log('set heat value ERROR', e.code||'', e.message||e));
   };
   function manualHeat(side, zone, raw){
     const v = clamp0(raw); const idx=zone-1;
     const path = '/heat/sets/'+($('#heatSet').value||1)+'/'+side+'/'+idx; mark(path);
-    set(ref(db, matchPath+path), v).catch(console.error);
+    set(ref(db, matchPath+path), v).catch(e=>log('manual heat ERROR', e.code||'', e.message||e));
   }
 
   function serveErrSetChange(d){
@@ -448,7 +350,7 @@
     if(next===cur) return;
     $('#serveErrSet').value = next; refreshServeErr(next);
     const path='/heat/setNumber'; mark(path);
-    set(ref(db, matchPath+path), next);
+    set(ref(db, matchPath+path), next).catch(e=>log('set serveErr setNumber ERROR', e.code||'', e.message||e));
   }
   window.serveErrSetChange = serveErrSetChange;
   function refreshServeErr(n){
@@ -457,22 +359,22 @@
       const eh = $('#serveErr_home'), ea = $('#serveErr_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
-    });
+    }).catch(e=>log('refreshServeErr ERROR', e.code||'', e.message||e));
   }
   window.bumpServeErr = (side, delta)=>{
     const id = 'serveErr_'+side; const el = $('#'+id);
     const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const setNo = clamp0($('#serveErrSet').value)||1;
     const path = '/serveErrors/'+setNo+'/'+side; mark(path);
-    set(ref(db, matchPath+path), next).catch(console.error);
+    set(ref(db, matchPath+path), next).catch(e=>log('set serveErr value ERROR', e.code||'', e.message||e));
   };
   $('#serveErr_home').addEventListener('change', ()=>{
     const v = clamp0($('#serveErr_home').value); const setNo=clamp0($('#serveErrSet').value)||1;
-    const path='/serveErrors/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/serveErrors/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v).catch(e=>log('manual serveErr home ERROR', e.code||'', e.message||e));
   });
   $('#serveErr_away').addEventListener('change', ()=>{
     const v = clamp0($('#serveErr_away').value); const setNo=clamp0($('#serveErrSet').value)||1;
-    const path='/serveErrors/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/serveErrors/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v).catch(e=>log('manual serveErr away ERROR', e.code||'', e.message||e));
   });
 
   function servePtsSetChange(d){
@@ -481,7 +383,7 @@
     if(next===cur) return;
     $('#servePtsSet').value = next; refreshServePts(next);
     const path='/heat/setNumber'; mark(path);
-    set(ref(db, matchPath+path), next);
+    set(ref(db, matchPath+path), next).catch(e=>log('set servePts setNumber ERROR', e.code||'', e.message||e));
   }
   window.servePtsSetChange = servePtsSetChange;
   function refreshServePts(n){
@@ -490,34 +392,37 @@
       const eh = $('#servePts_home'), ea = $('#servePts_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
-    });
+    }).catch(e=>log('refreshServePts ERROR', e.code||'', e.message||e));
   }
   window.bumpServePts = (side, delta)=>{
     const id = 'servePts_'+side; const el = $('#'+id);
     const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const setNo = clamp0($('#servePtsSet').value)||1;
     const path = '/servePoints/'+setNo+'/'+side; mark(path);
-    set(ref(db, matchPath+path), next).catch(console.error);
+    set(ref(db, matchPath+path), next).catch(e=>log('set servePts value ERROR', e.code||'', e.message||e));
   };
   $('#servePts_home').addEventListener('change', ()=>{
     const v = clamp0($('#servePts_home').value); const setNo=clamp0($('#servePtsSet').value)||1;
-    const path='/servePoints/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/servePoints/'+setNo+'/home'; mark(path); set(ref(db, matchPath+path), v).catch(e=>log('manual servePts home ERROR', e.code||'', e.message||e));
   });
   $('#servePts_away').addEventListener('change', ()=>{
     const v = clamp0($('#servePts_away').value); const setNo=clamp0($('#servePtsSet').value)||1;
-    const path='/servePoints/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v);
+    const path='/servePoints/'+setNo+'/away'; mark(path); set(ref(db, matchPath+path), v).catch(e=>log('manual servePts away ERROR', e.code||'', e.message||e));
   });
 
   document.getElementById('btnConnect').addEventListener('click', connect);
   document.getElementById('btnReset').addEventListener('click', async ()=>{
     if(!db||!matchPath) return alert('Conecta primero.');
     if(!confirm('¿Resetear a 0-0 todos los sets, heatmap, errores y aces?')) return;
-    await set(ref(db, matchPath), null);
-    const rootRef = ref(db, matchPath);
-    const base = {teams:{home:'HOME',away:'AWAY'}, sets:{}, heat:{setNumber:1,sets:{}}, serveErrors:{}, servePoints:{}};
-    for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
-    for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
-    await set(rootRef, base);
+    try{
+      await set(ref(db, matchPath), null);
+      const rootRef = ref(db, matchPath);
+      const base = {teams:{home:'HOME',away:'AWAY'}, sets:{}, heat:{setNumber:1,sets:{}}, serveErrors:{}, servePoints:{}};
+      for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
+      for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+      await set(rootRef, base);
+      log('reset OK');
+    }catch(e){ log('reset ERROR', e.code||'', e.message||e); }
   });
 
   paintScoreTable(); paintHeatTable();
