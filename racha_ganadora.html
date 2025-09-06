@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OBS · Racha ganadora (SVG balls)</title>
+<style>
+  html,body{margin:0;padding:0;background:transparent}
+  :root{
+    --scale:18;
+    --fg:#ffffff;
+    --shadow:rgba(0,0,0,.75);
+    --pill:rgba(0,0,0,.45);
+    --pill-bd:rgba(255,255,255,.5);
+    --radius:14px;
+    --ball-fill:#ffffff;
+    --ball-stroke:#0f172a;
+    --ball-alpha:0.92;
+  }
+  .wrap{display:inline-flex;flex-direction:column;align-items:center;gap:8px;
+        font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+        color:var(--fg);text-shadow:0 2px 4px var(--shadow);}
+  .title{font-weight:900;letter-spacing:.8px;
+         font-size:calc(var(--scale)*1.4px);
+         background:var(--pill);border:1px solid var(--pill-bd);border-radius:var(--radius);
+         padding:6px 14px}
+  .balls{display:flex;gap:6px;align-items:center;justify-content:center}
+  .ball{width:calc(var(--scale)*1.8px);height:calc(var(--scale)*1.8px);display:block}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<div id="root" class="wrap hidden">
+  <div class="title">RACHA GANADORA</div>
+  <div id="balls" class="balls"></div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+  const p=new URLSearchParams(location.search);
+  const MATCH_ID = p.get('matchId') || 'test123';
+  const MIN_RUN = Math.max(1, parseInt(p.get('min')||'3',10));
+  const SCALE = Math.max(12, parseInt(p.get('scale')||'18',10));
+  document.documentElement.style.setProperty('--scale', SCALE);
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+    authDomain: "supervolei-panel-final.firebaseapp.com",
+    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "supervolei-panel-final",
+    storageBucket: "supervolei-panel-final.firebasestorage.app",
+    messagingSenderId: "993690944196",
+    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
+  };
+  initializeApp(firebaseConfig);
+  await signInAnonymously(getAuth());
+  const db = getDatabase();
+
+  const root = document.getElementById('root');
+  const ballsEl = document.getElementById('balls');
+
+  // Simple SVG volleyball icon (inline to avoid CORS/fonts issues in OBS)
+  const svgBall = `
+<svg class="ball" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <style>
+      .a{fill:rgba(255,255,255,var(--ball-alpha));stroke:var(--ball-stroke);stroke-width:3}
+      .b{fill:none;stroke:var(--ball-stroke);stroke-width:3}
+    </style>
+  </defs>
+  <circle class="a" cx="32" cy="32" r="28"/>
+  <path class="b" d="M4 28c14 0 28 6 40 18"/>
+  <path class="b" d="M12 12c10 6 18 16 22 30"/>
+  <path class="b" d="M28 4c6 14 6 30 0 44"/>
+  <path class="b" d="M52 12c-10 6-18 16-22 30"/>
+  <path class="b" d="M60 28c-14 0-28 6-40 18"/>
+</svg>`;
+
+  // Estado
+  let currentSet = 1;
+  let lastHome = 0, lastAway = 0;
+  let streakTeam = null; // 'home' | 'away'
+  let streakCount = 0;
+
+  function resetStreak(){
+    streakTeam = null;
+    streakCount = 0;
+    root.classList.add('hidden');
+    ballsEl.innerHTML='';
+  }
+
+  function renderStreak(){
+    if (streakCount >= MIN_RUN){
+      root.classList.remove('hidden');
+      // Crear exactamente "streakCount" pelotas (sin emojis)
+      ballsEl.innerHTML = "";
+      for(let i=0;i<streakCount;i++){
+        const div = document.createElement('div');
+        div.innerHTML = svgBall;
+        ballsEl.appendChild(div.firstElementChild);
+      }
+    } else {
+      root.classList.add('hidden');
+      ballsEl.innerHTML='';
+    }
+  }
+
+  onValue(ref(db, `matches/${MATCH_ID}/heat/setNumber`), snap=>{
+    const n = parseInt(snap.val()||1,10);
+    if (!Number.isNaN(n) && n!==currentSet){
+      currentSet = n;
+      lastHome = 0; lastAway = 0;
+      resetStreak();
+    }
+  });
+
+  // Suscripción a los dos contadores del set activo
+  function bindSetListeners(setNo){
+    onValue(ref(db, `matches/${MATCH_ID}/sets/${setNo}/home`), s=>{
+      const v = parseInt(s.val()||0,10);
+      handleScoreChange(v, lastAway);
+      lastHome = v;
+    });
+    onValue(ref(db, `matches/${MATCH_ID}/sets/${setNo}/away`), s=>{
+      const v = parseInt(s.val()||0,10);
+      handleScoreChange(lastHome, v);
+      lastAway = v;
+    });
+  }
+  bindSetListeners(currentSet);
+
+  // También vigila nodo completo para re-sincronizar "últimos"
+  onValue(ref(db, `matches/${MATCH_ID}/sets`), s=>{
+    const all = s.val()||{};
+    const node = all[currentSet] || {home:0, away:0};
+    lastHome = parseInt(node.home||0,10);
+    lastAway = parseInt(node.away||0,10);
+  });
+
+  function handleScoreChange(newH, newA){
+    const dH = newH - lastHome;
+    const dA = newA - lastAway;
+    if ((dH!==0 && dA!==0) || Math.abs(dH)>1 || Math.abs(dA)>1){
+      resetStreak(); return;
+    }
+    if (dH===0 && dA===0) return;
+
+    const scorer = dH===1 ? 'home' : (dA===1 ? 'away' : null);
+    if (!scorer){ resetStreak(); return; }
+
+    if (streakTeam === scorer){
+      streakCount += 1;
+    } else {
+      streakTeam = scorer;
+      streakCount = 1;
+    }
+    renderStreak();
+  }
+</script>
+</body>
+</html>
