@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OBS Marcador Vóley (Firebase · fondo transparente)</title>
+<style>
+  /* Fondo general transparente */
+  html,body{margin:0;padding:0;background:transparent}
+  :root{
+    --scale:16;
+    --fg:#ffffff;
+    --sub:#fffae5;
+    --row1:rgba(255,102,0,0.65);  /* naranja */
+    --row2:rgba(0,128,255,0.65);  /* azul */
+    --border:#ffffff;
+    --badge:rgba(255,255,255,.25);
+    --badge-bd:rgba(255,255,255,.6);
+    --radius:10px;
+    --gap:6px;
+    --padY: calc(var(--scale)*0.25px);
+    --padX: calc(var(--scale)*0.35px);
+    --win-bg: rgba(0,0,0,.38);
+    --win-bd: rgba(255,255,255,.45);
+  }
+  /* El wrapper no pinta fondo */
+  .wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--fg);
+        font-size:calc(var(--scale)*1px);line-height:1.1;display:inline-block;background:transparent}
+  /* Estructuras sin fondo */
+  .head,.table{display:grid;gap:var(--gap);background:transparent}
+  /* Cualquier celda sin fondo salvo las filas de marcador */
+  .cell{display:flex;align-items:center;justify-content:center;white-space:nowrap;
+        min-width:calc(var(--scale)*1.6px);background:transparent}
+  .head .cell{color:var(--sub);text-transform:uppercase;font-weight:700;letter-spacing:.4px;
+              padding:2px 0;background:transparent}
+  /* Filas del marcador sí tienen fondo (naranja/azul) */
+  .row{display:grid;align-items:center;gap:var(--gap);padding:var(--padY) var(--padX);
+       border-radius:var(--radius);backdrop-filter:blur(2px);background:transparent}
+  .row:nth-child(odd){background:var(--row1)}
+  .row:nth-child(even){background:var(--row2)}
+  .team{justify-content:flex-start;font-weight:800;overflow:hidden;text-overflow:ellipsis}
+  .team-pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--badge);border:1px solid var(--badge-bd)}
+  .score{font-weight:900;font-variant-numeric:tabular-nums}
+  .divider-h{border-left:3px solid var(--border);padding-left:calc(var(--padX))}
+  .win{font-weight:900; font-variant-numeric:tabular-nums; padding:2px 8px; border-radius:999px;
+       background:var(--win-bg); border:1px solid var(--win-bd); min-width:2.2em; justify-content:center}
+  .shadow-on *{text-shadow:0 2px 3px rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.4)}
+</style>
+</head>
+<body>
+<div id="root" class="wrap">
+  <div id="head" class="head"></div>
+  <div id="table" class="table"></div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+  // ===== Parámetros
+  const p=new URLSearchParams(location.search);
+  const COLS=Math.min(5,Math.max(1,parseInt(p.get('cols')||'5',10)));
+  const SCALE=Math.max(12,parseInt(p.get('scale')||'16',10));
+  const SHADOW=p.get('shadow')==='1';
+  const MATCH_ID = p.get('matchId') || 'test123';
+
+  document.documentElement.style.setProperty('--scale',SCALE);
+  if(SHADOW)document.getElementById('root').classList.add('shadow-on');
+
+  const $=s=>document.querySelector(s);
+  const headEl=$('#head'), tableEl=$('#table');
+
+  // Grid: Team | sets (sin etiquetas) | WIN
+  const gridTemplate = cols => `minmax(${SCALE*7}px,1fr)` + ' auto'.repeat(cols) + ' auto';
+
+  function buildHead(cols){
+    headEl.innerHTML='';
+    headEl.style.gridTemplateColumns=gridTemplate(cols);
+    const blank=document.createElement('div'); blank.className='cell'; headEl.appendChild(blank);
+    for(let i=1;i<=cols;i++){ const c=document.createElement('div'); c.className='cell'; c.textContent=''; headEl.appendChild(c); }
+    const cW=document.createElement('div'); cW.className='cell divider-h'; cW.textContent='W'; headEl.appendChild(cW);
+  }
+
+  function buildRow(label, cols){
+    const r=document.createElement('div');
+    r.className='row';
+    r.style.gridTemplateColumns=gridTemplate(cols);
+
+    const t=document.createElement('div');
+    t.className='cell team';
+    t.innerHTML=`<span class="team-pill">${label}</span>`;
+    r.appendChild(t);
+
+    for(let i=0;i<cols;i++){ const c=document.createElement('div'); c.className='cell score'; c.textContent='—'; r.appendChild(c); }
+    const cW=document.createElement('div'); cW.className='cell win divider-h'; cW.textContent='0'; r.appendChild(cW);
+    return r;
+  }
+
+  function calcVisibleCols(hist){
+    let visible=0;
+    for(let i=0;i<COLS;i++){
+      const r=hist[i]||{};
+      const ph=Number(r.points_home||0);
+      const pa=Number(r.points_away||0);
+      if (ph===0 && pa===0) break;
+      visible = i+1;
+    }
+    return visible || 1;
+  }
+
+  function render(names, hist, wins){
+    const cols = calcVisibleCols(hist);
+    headEl.innerHTML=''; tableEl.innerHTML='';
+    buildHead(cols);
+    const rowH=buildRow(names.home, cols);
+    const rowA=buildRow(names.away, cols);
+    tableEl.appendChild(rowH); tableEl.appendChild(rowA);
+
+    for(let i=0;i<cols;i++){
+      const r=hist[i]||{};
+      rowH.children[1+i].textContent = String(Number(r.points_home||0));
+      rowA.children[1+i].textContent = String(Number(r.points_away||0));
+    }
+
+    rowH.children[1+cols].textContent = String(wins.home||0);
+    rowA.children[1+cols].textContent = String(wins.away||0);
+  }
+
+  // Estado y re-render mínimo
+  let names = {home:'HOME', away:'AWAY'};
+  let hist = Array.from({length:5}, ()=>({points_home:0, points_away:0}));
+  let wins = {home:0, away:0};
+  let lastSnap='';
+
+  function computeWinsFromHist(hist, cols){
+    let wH=0, wA=0;
+    for(let i=0;i<cols;i++){
+      const r=hist[i]||{}; const ph=Number(r.points_home||0); const pa=Number(r.points_away||0);
+      if (ph>pa) wH++; else if (pa>ph) wA++;
+    }
+    return {home:wH, away:wA};
+  }
+
+  function maybeRender(){
+    const cols = calcVisibleCols(hist);
+    const fallback = computeWinsFromHist(hist, cols);
+    const useWins = {home: (typeof wins.home==='number'?wins.home:fallback.home),
+                     away: (typeof wins.away==='number'?wins.away:fallback.away)};
+    const snap = JSON.stringify({names, cols, hist: hist.slice(0,cols), wins:useWins});
+    if (snap !== lastSnap){ lastSnap=snap; render(names, hist, useWins); }
+  }
+
+  // ===== Firebase =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+    authDomain: "supervolei-panel-final.firebaseapp.com",
+    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "supervolei-panel-final",
+    storageBucket: "supervolei-panel-final.firebasestorage.app",
+    messagingSenderId: "993690944196",
+    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
+  };
+  initializeApp(firebaseConfig);
+  await signInAnonymously(getAuth());
+  const db = getDatabase();
+  const base = `matches/${MATCH_ID}`;
+
+  onValue(ref(db, `${base}/teams`), s=>{
+    const v=s.val()||{};
+    names = { home: String(v.home||'HOME'), away: String(v.away||'AWAY') };
+    maybeRender();
+  });
+
+  onValue(ref(db, `${base}/sets`), s=>{
+    const v=s.val()||{};
+    const out = [];
+    for (let i=1;i<=5;i++){
+      const node = v[i] || {};
+      out.push({
+        points_home: Number(node.home||0),
+        points_away: Number(node.away||0)
+      });
+    }
+    hist = out;
+    maybeRender();
+  });
+
+  onValue(ref(db, `${base}/setsWon`), s=>{
+    const v=s.val();
+    if (v && typeof v.home !== 'undefined' && typeof v.away !== 'undefined'){
+      wins = { home: Number(v.home||0), away: Number(v.away||0) };
+    } else {
+      wins = { home: undefined, away: undefined };
+    }
+    maybeRender();
+  });
+</script>
+</body>
+</html>
