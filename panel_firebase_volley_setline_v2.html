@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Panel Marcador Vóley — Autosets (puntos 2 columnas)</title>
+<title>Panel Marcador Vóley — Autosets (fix headers + tamaños + heatmap 2 col)</title>
 <style>
   :root{
     --bg:#ffffff; --card:#f7f8fa; --muted:#e3e7ee; --text:#1f2937; --sub:#6b7280;
@@ -35,12 +35,12 @@
   th,td{padding:8px}
   th{color:var(--sub);font-weight:700;border-bottom:1px solid var(--muted);text-align:center}
 
-  /* === distribución en cada celda: botón – | input | botón + === */
+  /* === Distribución estándar en TODAS las celdas de contadores === */
   .cell{display:grid; grid-template-columns: 52px minmax(56px, auto) 52px; align-items:center; justify-items:center; gap:10px}
   .cell .btn{ width:auto; min-width:52px }
   .cell .scoreInput{ width:60px }
 
-  /* Compact para móviles (iPhone 12) */
+  /* Compact móvil */
   @media (max-width:420px){
     .cell{ grid-template-columns: 46px minmax(54px, auto) 46px; gap:8px }
     .cell .btn{ min-width:46px; padding:6px 6px; font-size:13px }
@@ -58,11 +58,6 @@
   .setBtn{ width:auto; min-width:56px; }
   .setNum{ width:auto; min-width:82px; text-align:center; font-size:40px; line-height:1; font-weight:900; padding:8px 14px; border-radius:12px; background:#fff; border:1px solid var(--input-border); }
 
-  .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:8px; }
-  .teamCounter{ display:flex; align-items:center; gap:10px; }
-  .teamCounter .scoreInput{ width:90px; }
-  .teamCounter .btn{ width:auto; min-width:56px; }
-
   .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
 </style>
 </head>
@@ -78,7 +73,7 @@
     <div class="small" style="margin-top:8px">Validar con Enter o salir del campo para guardar.</div>
   </div>
 
-  <!-- 2) Marcador (2 columnas) -->
+  <!-- 2) Marcador (2 columnas, sin columna Set) -->
   <div class="card">
     <h2>Puntos por set</h2>
     <table>
@@ -101,10 +96,10 @@
         Auto‑calcular
       </label>
     </div>
-    <div class="grid grid2 centerCols" style="margin-top:8px">
+    <div class="grid grid2" style="margin-top:8px">
       <div>
         <div class="teamHeader" id="setsWonHomeName">HOME</div>
-        <div class="teamCounter">
+        <div class="cell">
           <button class="btn" onclick="bumpSetsWon('home',-1)">−</button>
           <input id="setsWon_home" class="scoreInput" type="number" value="0">
           <button class="btn btn-ok" onclick="bumpSetsWon('home',1)">+</button>
@@ -112,7 +107,7 @@
       </div>
       <div>
         <div class="teamHeader" id="setsWonAwayName">AWAY</div>
-        <div class="teamCounter">
+        <div class="cell">
           <button class="btn" onclick="bumpSetsWon('away',-1)">−</button>
           <input id="setsWon_away" class="scoreInput" type="number" value="0">
           <button class="btn btn-ok" onclick="bumpSetsWon('away',1)">+</button>
@@ -121,7 +116,7 @@
     </div>
   </div>
 
-  <!-- 3) Heatmap -->
+  <!-- 3) Heatmap (2 columnas, sin columna Zona) -->
   <div class="card">
     <h2>Heatmap (por set)</h2>
     <div class="setline" style="margin-bottom:8px">
@@ -129,12 +124,8 @@
       <input id="heatSet" class="setNum" value="1" readonly />
       <button class="btn btn-ok setBtn" onclick="heatSetChange(1)">+</button>
     </div>
-    <div class="grid grid2" style="margin-top:8px">
-      <div class="teamHeader" id="heatHomeName">HOME</div>
-      <div class="teamHeader" id="heatAwayName">AWAY</div>
-    </div>
     <table style="margin-top:6px">
-      <thead><tr><th>Zona</th><th>HOME</th><th>AWAY</th></tr></thead>
+      <thead><tr><th id="heatHeadHome">HOME</th><th id="heatHeadAway">AWAY</th></tr></thead>
       <tbody id="heatBody"></tbody>
     </table>
   </div>
@@ -147,10 +138,10 @@
       <input id="serveErrSet" class="setNum" value="1" readonly />
       <button class="btn btn-ok setBtn" onclick="serveErrSetChange(1)">+</button>
     </div>
-    <div class="grid grid2 centerCols">
+    <div class="grid grid2">
       <div>
         <div class="teamHeader" id="serveErrHomeName">HOME</div>
-        <div class="teamCounter">
+        <div class="cell">
           <button class="btn" onclick="bumpServeErr('home',-1)">−</button>
           <input id="serveErr_home" class="scoreInput" value="0">
           <button class="btn btn-ok" onclick="bumpServeErr('home',1)">+</button>
@@ -158,7 +149,7 @@
       </div>
       <div>
         <div class="teamHeader" id="serveErrAwayName">AWAY</div>
-        <div class="teamCounter">
+        <div class="cell">
           <button class="btn" onclick="bumpServeErr('away',-1)">−</button>
           <input id="serveErr_away" class="scoreInput" value="0">
           <button class="btn btn-ok" onclick="bumpServeErr('away',1)">+</button>
@@ -175,10 +166,10 @@
       <input id="servePtsSet" class="setNum" value="1" readonly />
       <button class="btn btn-ok setBtn" onclick="servePtsSetChange(1)">+</button>
     </div>
-    <div class="grid grid2 centerCols">
+    <div class="grid grid2">
       <div>
         <div class="teamHeader" id="servePtsHomeName">HOME</div>
-        <div class="teamCounter">
+        <div class="cell">
           <button class="btn" onclick="bumpServePts('home',-1)">−</button>
           <input id="servePts_home" class="scoreInput" value="0">
           <button class="btn btn-ok" onclick="bumpServePts('home',1)">+</button>
@@ -186,7 +177,7 @@
       </div>
       <div>
         <div class="teamHeader" id="servePtsAwayName">AWAY</div>
-        <div class="teamCounter">
+        <div class="cell">
           <button class="btn" onclick="bumpServePts('away',-1)">−</button>
           <input id="servePts_away" class="scoreInput" value="0">
           <button class="btn btn-ok" onclick="bumpServePts('away',1)">+</button>
@@ -273,7 +264,6 @@
     for(let z=1; z<=3; z++){
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>Zona ${z}</td>
         <td><div class="cell"><button class="btn" onclick="window.bumpHeat('home',${z},-1)">−</button><input class="scoreInput" id="heat_home_${z}" type="number" value="0"><button class="btn btn-ok" onclick="window.bumpHeat('home',${z},+1)">+</button></div></td>
         <td><div class="cell"><button class="btn" onclick="window.bumpHeat('away',${z},-1)">−</button><input class="scoreInput" id="heat_away_${z}" type="number" value="0"><button class="btn btn-ok" onclick="window.bumpHeat('away',${z},+1)">+</button></div></td>`;
       body.appendChild(tr);
@@ -288,9 +278,9 @@
     // Encabezados dinámicos
     document.getElementById('thHome').textContent = H;
     document.getElementById('thAway').textContent = A;
-    // Otros bloques
-    document.getElementById('heatHomeName').textContent = H;
-    document.getElementById('heatAwayName').textContent = A;
+    document.getElementById('heatHeadHome').textContent = H;
+    document.getElementById('heatHeadAway').textContent = A;
+    // Títulos de bloques
     document.getElementById('serveErrHomeName').textContent = H;
     document.getElementById('serveErrAwayName').textContent = A;
     document.getElementById('servePtsHomeName').textContent = H;
@@ -450,7 +440,6 @@
     }
     return {home, away};
   }
-
   function maybeAutoCalcSetsWon(force=false){
     if(!$('#autoSetsToggle').checked && !force) return;
     const calc = computeSetsWonFromPoints();
