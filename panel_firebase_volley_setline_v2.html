@@ -3,27 +3,16 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Panel Marcador Vóley (Firebase) — Layout Fix (mantiene funcionalidades)</title>
+<title>Panel Marcador Vóley — Sets ganados (autocálculo + manual)</title>
 <style>
   :root{
-    --bg:#ffffff;
-    --card:#f7f8fa;
-    --muted:#e3e7ee;
-    --text:#1f2937;
-    --sub:#6b7280;
-    --accent:#2563eb;
-    --ok:#16a34a;
-    --warn:#f59e0b;
-    --danger:#dc2626;
-    --radius:14px;
-    --input:#ffffff;
-    --input-border:#d1d5db;
-    --btn:#eef2f7;
-    --btn-border:#cbd5e1;
+    --bg:#ffffff; --card:#f7f8fa; --muted:#e3e7ee; --text:#1f2937; --sub:#6b7280;
+    --accent:#2563eb; --ok:#16a34a; --warn:#f59e0b; --danger:#dc2626; --radius:14px;
+    --input:#ffffff; --input-border:#d1d5db; --btn:#eef2f7; --btn-border:#cbd5e1;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 100px}
+  .wrap{max-width:900px;margin:0 auto;padding:16px 16px 120px}
   .card{background:var(--card);border:1px solid var(--muted);border-radius:var(--radius);padding:14px;margin-bottom:14px}
   h1{font-size:20px;margin:0 0 8px}
   h2{font-size:16px;margin:0 0 10px;color:var(--sub)}
@@ -37,65 +26,60 @@
        width:100%;padding:10px 10px;border-radius:12px;border:1px solid var(--btn-border);
        background:var(--btn);color:var(--text);font-weight:700;font-size:16px;cursor:pointer}
   .btn:active{transform:scale(.98)}
-  .btn-ok   { background:#e9f7ee; border-color:#bfe8ca; color:#0f5132 }
+  .btn-ok{ background:#e9f7ee; border-color:#bfe8ca; color:#0f5132 }
   .btn-accent{ background:#e8efff; border-color:#c7d5e1; color:#1e40af }
 
   .scoreInput{width:64px;text-align:center;font-size:28px;font-weight:900;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid var(--input-border);color:var(--text)}
   .badge-set{min-width:48px;text-align:center;border:1px solid var(--muted);border-radius:8px;padding:4px 6px;background:#fff;color:var(--text);white-space:nowrap}
-  table{width:100%;border-collapse:separate;border-spacing:0 8px}
+
+  table{width:100%;border-collapse:separate;border-spacing:0 8px;table-layout:fixed}
   th,td{padding:8px}
   th{color:var(--sub);font-weight:600;border-bottom:1px solid var(--muted)}
   .cell{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:nowrap}
   .thName{max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 
-  .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
   .status{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .dot{width:10px;height:10px;border-radius:50%;background:var(--danger)}
   .dot.ok{background:var(--ok)}
   .small{font-size:12px;color:var(--sub)}
   .teamHeader{ font-weight:800; font-size:14px; margin:4px 0 8px; color:var(--text); text-align:center; }
 
-  /* Set selector in single centered line */
   .setline{ display:flex; align-items:center; justify-content:center; gap:12px; }
   .setBtn{ width:auto; min-width:56px; }
   .setNum{ width:auto; min-width:82px; text-align:center; font-size:40px; line-height:1; font-weight:900; padding:8px 14px; border-radius:12px; background:#fff; border:1px solid var(--input-border); }
 
-  /* Center columns in serve blocks */
   .centerCols > div{ display:flex; flex-direction:column; align-items:center; gap:8px; }
   .teamCounter{ display:flex; align-items:center; gap:10px; }
   .teamCounter .scoreInput{ width:90px; }
   .teamCounter .btn{ width:auto; min-width:56px; }
 
-  /* === Compact design tweaks (visual only) === */
-  /* Puntos por set: reducir un poco botones/inputs para que nada se solape dentro del card gris */
-  .points .cell .btn{ width:auto; min-width:50px; padding:8px 8px; font-size:15px; }
-  .points .cell .scoreInput{ width:58px; font-size:24px; padding:6px 6px; }
-  .points thead th:first-child{ width:78px; }
-
-  /* Heatmap/saques: aplicar mismo tamaño compacto a los controles dentro de tablas/contadores */
+  .points .cell .btn,
   .heatmap .cell .btn,
   .serveErr .teamCounter .btn,
-  .servePts .teamCounter .btn{ width:auto; min-width:50px; padding:8px 8px; font-size:15px; }
+  .servePts .teamCounter .btn,
+  .setsWon .teamCounter .btn{ width:auto; min-width:50px; padding:8px 8px; font-size:15px; }
+  .points .cell .scoreInput,
   .heatmap .cell .scoreInput,
   .serveErr .teamCounter .scoreInput,
-  .servePts .teamCounter .scoreInput{ width:58px; font-size:24px; padding:6px 6px; }
-  .heatmap thead th:first-child{ width:70px; }
+  .servePts .teamCounter .scoreInput,
+  .setsWon .teamCounter .scoreInput{ width:58px; font-size:24px; padding:6px 6px; }
 
-  /* iPhone 12 (<=420px): micro ajustes extra */
-  @media (max-width: 420px){
+  @media (max-width:420px){
     .points .cell .btn,
     .heatmap .cell .btn,
     .serveErr .teamCounter .btn,
-    .servePts .teamCounter .btn{ min-width:46px; padding:7px 8px; font-size:14px; }
+    .servePts .teamCounter .btn,
+    .setsWon .teamCounter .btn{ min-width:46px; padding:7px 8px; font-size:14px; }
     .points .cell .scoreInput,
     .heatmap .cell .scoreInput,
     .serveErr .teamCounter .scoreInput,
-    .servePts .teamCounter .scoreInput{ width:54px; font-size:22px; }
-    .points thead th:first-child{ width:74px; }
+    .servePts .teamCounter .scoreInput,
+    .setsWon .teamCounter .scoreInput{ width:54px; font-size:22px; }
     .setNum{ min-width:76px; font-size:36px; padding:8px 12px }
-    .teamCounter .scoreInput{ width:78px; } /* para inputs grandes no compactados */
-    .teamCounter .btn{ min-width:50px; }
+    .teamCounter .scoreInput{ width:78px; }
   }
+
+  .footer{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(to top, rgba(255,255,255,.95), rgba(255,255,255,.7), transparent);border-top:1px solid var(--muted)}
 </style>
 </head>
 <body>
@@ -123,6 +107,35 @@
       </thead>
       <tbody id="pointsBody"></tbody>
     </table>
+  </div>
+
+  <!-- 2b) Sets ganados (autocálculo + manual) -->
+  <div class="card setsWon">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <h2 style="margin:0">Sets ganados</h2>
+      <label class="small" style="display:flex;align-items:center;gap:8px">
+        <input id="autoSetsToggle" type="checkbox" checked>
+        Auto‑calcular
+      </label>
+    </div>
+    <div class="grid grid2 centerCols" style="margin-top:8px">
+      <div>
+        <div class="teamHeader" id="setsWonHomeName">HOME</div>
+        <div class="teamCounter">
+          <button class="btn" onclick="bumpSetsWon('home',-1)">−</button>
+          <input id="setsWon_home" class="scoreInput" type="number" value="0">
+          <button class="btn btn-ok" onclick="bumpSetsWon('home',1)">+</button>
+        </div>
+      </div>
+      <div>
+        <div class="teamHeader" id="setsWonAwayName">AWAY</div>
+        <div class="teamCounter">
+          <button class="btn" onclick="bumpSetsWon('away',-1)">−</button>
+          <input id="setsWon_away" class="scoreInput" type="number" value="0">
+          <button class="btn btn-ok" onclick="bumpSetsWon('away',1)">+</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 3) Heatmap -->
@@ -199,7 +212,7 @@
     </div>
   </div>
 
-  <!-- 6) Conexión (AL FINAL) -->
+  <!-- 6) Conexión -->
   <div class="card">
     <h1>Conexión</h1>
     <div class="grid grid2">
@@ -212,7 +225,6 @@
   </div>
 </div>
 
-<!-- Footer estado -->
 <div class="footer">
   <div class="status">
     <div id="netdot" class="dot"></div>
@@ -222,12 +234,19 @@
 </div>
 
 <script type="module">
-  /* === JS SIN CAMBIOS FUNCIONALES (idéntico a tu versión de referencia) === */
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import { getDatabase, ref, onValue, set, update, get, child } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-  const firebaseConfig = {"apiKey": "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ", "authDomain": "supervolei-panel-final.firebaseapp.com", "databaseURL": "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app", "projectId": "supervolei-panel-final", "storageBucket": "supervolei-panel-final.firebasestorage.app", "messagingSenderId": "993690944196", "appId": "1:993690944196:web:1a7ea451c03201e6f6ff91"};
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+    authDomain: "supervolei-panel-final.firebaseapp.com",
+    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "supervolei-panel-final",
+    storageBucket: "supervolei-panel-final.firebasestorage.app",
+    messagingSenderId: "993690944196",
+    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
+  };
   let db=null, matchPath=null, listenersBound=false;
 
   const $ = (s)=>document.querySelector(s);
@@ -235,8 +254,8 @@
   function clamp0(n){ n=parseInt(n||0,10); return isNaN(n)?0:Math.max(0,n); }
 
   const writeMark = new Map();
-  function mark(path){ writeMark.set(path, Date.now()); }
-  function isOwn(path,ms=800){ const t=writeMark.get(path); return t && (Date.now()-t)<ms; }
+  const mark=(p)=>writeMark.set(p,Date.now());
+  const isOwn=(p,ms=800)=>{ const t=writeMark.get(p); return t && (Date.now()-t)<ms; };
 
   function paintScoreTable(){
     const body = $('#pointsBody'); body.innerHTML='';
@@ -269,20 +288,8 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>Zona ${z}</td>
-        <td>
-          <div class="cell">
-            <button class="btn" onclick="window.bumpHeat('home',${z},-1)">−</button>
-            <input class="scoreInput" id="heat_home_${z}" type="number" value="0">
-            <button class="btn btn-ok" onclick="window.bumpHeat('home',${z},+1)">+</button>
-          </div>
-        </td>
-        <td>
-          <div class="cell">
-            <button class="btn" onclick="window.bumpHeat('away',${z},-1)">−</button>
-            <input class="scoreInput" id="heat_away_${z}" type="number" value="0">
-            <button class="btn btn-ok" onclick="window.bumpHeat('away',${z},+1)">+</button>
-          </div>
-        </td>`;
+        <td><div class="cell"><button class="btn" onclick="window.bumpHeat('home',${z},-1)">−</button><input class="scoreInput" id="heat_home_${z}" type="number" value="0"><button class="btn btn-ok" onclick="window.bumpHeat('home',${z},+1)">+</button></div></td>
+        <td><div class="cell"><button class="btn" onclick="window.bumpHeat('away',${z},-1)">−</button><input class="scoreInput" id="heat_away_${z}" type="number" value="0"><button class="btn btn-ok" onclick="window.bumpHeat('away',${z},+1)">+</button></div></td>`;
       body.appendChild(tr);
       const ih = $('#heat_home_'+z), ia = $('#heat_away_'+z);
       ih.addEventListener('change', ()=>manualHeat('home',z, ih.value));
@@ -299,6 +306,8 @@
     $('#serveErrAwayName').textContent = away || 'AWAY';
     $('#servePtsHomeName').textContent = home || 'HOME';
     $('#servePtsAwayName').textContent = away || 'AWAY';
+    $('#setsWonHomeName').textContent = home || 'HOME';
+    $('#setsWonAwayName').textContent = away || 'AWAY';
   }
 
   async function connect(){
@@ -317,15 +326,13 @@
     const rootRef = ref(db, matchPath);
     const snap = await get(rootRef);
     if(!snap.exists()){
-      const base = {
-        teams:{home:'HOME', away:'AWAY'},
-        sets:{}, heat:{ setNumber:1, sets:{} },
-        serveErrors:{}, servePoints:{}
-      };
+      const base = { teams:{home:'HOME', away:'AWAY'}, sets:{}, heat:{ setNumber:1, sets:{} }, serveErrors:{}, servePoints:{}, setsWon:{home:0,away:0} };
       for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
-      for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0], away:[0,0,0]}; }
-      for(let s=1;s<=5;s++){ base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
+      for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0], away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
       await set(rootRef, base);
+    }else{
+      const setsWonSnap = await get(child(ref(db), matchPath+'/setsWon'));
+      if(!setsWonSnap.exists()) await update(rootRef, { setsWon:{home:0,away:0} });
     }
   }
 
@@ -336,26 +343,27 @@
       if(document.activeElement !== $('#nameAway')) $('#nameAway').value = v.away || '';
     });
 
+    // Puntos por set
     for(let i=1;i<=5;i++){
       onValue(ref(db, matchPath+'/sets/'+i+'/home'), (s)=>{
         const path = '/sets/'+i+'/home'; if(isOwn(path)) return;
         const val = clamp0(s.val()); const el = $('#in_home_'+i); if(el && document.activeElement!==el) el.value=val;
+        maybeAutoCalcSetsWon();
       });
       onValue(ref(db, matchPath+'/sets/'+i+'/away'), (s)=>{
         const path = '/sets/'+i+'/away'; if(isOwn(path)) return;
         const val = clamp0(s.val()); const el = $('#in_away_'+i); if(el && document.activeElement!==el) el.value=val;
+        maybeAutoCalcSetsWon();
       });
     }
 
+    // Heat + saques (sin cambios)
     onValue(ref(db, matchPath+'/heat/setNumber'), (s)=>{
       const path='/heat/setNumber'; if(isOwn(path)) return;
       const n = clamp0(s.val()) || 1;
-      $('#heatSet').value = n;
-      $('#serveErrSet').value = n;
-      $('#servePtsSet').value = n;
+      $('#heatSet').value = n; $('#serveErrSet').value = n; $('#servePtsSet').value = n;
       refreshHeatRow(n); refreshServeErr(n); refreshServePts(n);
     });
-
     onValue(ref(db, matchPath+'/heat/sets'), (s)=>{
       const all = s.val() || {};
       const n = clamp0($('#heatSet').value) || 1;
@@ -366,47 +374,109 @@
         if(ea && document.activeElement!==ea) ea.value = clamp0(H.away?.[z-1] ?? 0);
       }
     });
-
     onValue(ref(db, matchPath+'/serveErrors'), (s)=>{
-      const all = s.val() || {};
-      const n = clamp0($('#serveErrSet').value) || 1;
+      const all = s.val() || {}; const n = clamp0($('#serveErrSet').value)||1;
       const v = all[n] || {home:0,away:0};
       const eh = $('#serveErr_home'), ea = $('#serveErr_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
     });
     onValue(ref(db, matchPath+'/servePoints'), (s)=>{
-      const all = s.val() || {};
-      const n = clamp0($('#servePtsSet').value) || 1;
+      const all = s.val() || {}; const n = clamp0($('#servePtsSet').value)||1;
       const v = all[n] || {home:0,away:0};
       const eh = $('#servePts_home'), ea = $('#servePts_away');
       if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
       if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
     });
+
+    // Sets ganados
+    onValue(ref(db, matchPath+'/setsWon'), (s)=>{
+      const v = s.val() || {home:0,away:0};
+      const eh = $('#setsWon_home'), ea = $('#setsWon_away');
+      // Si está ON el auto-cálculo, reflejamos; si está OFF, no pisamos si el usuario está editando
+      if($('#autoSetsToggle').checked){
+        if(eh && document.activeElement!==eh) eh.value = clamp0(v.home);
+        if(ea && document.activeElement!==ea) ea.value = clamp0(v.away);
+      }else{
+        if(document.activeElement!==eh) eh.value = clamp0(v.home);
+        if(document.activeElement!==ea) ea.value = clamp0(v.away);
+      }
+    });
   }
 
-  // ====== Escribir ======
+  // ====== Escrituras ======
   window.bumpScore = (setNo, side, delta)=>{
     const id = (side==='home'?'in_home_':'in_away_')+setNo;
     const el = $('#'+id); const next = Math.max(0, clamp0(el.value)+delta); el.value = next;
     const path = '/sets/'+setNo+'/'+side; mark(path);
     update(ref(db, matchPath+'/sets/'+setNo), { [side]: clamp0(el.value) }).catch(console.error);
+    maybeAutoCalcSetsWon();
   };
   function manualScore(setNo, side, raw){
     const v = clamp0(raw); const path='/sets/'+setNo+'/'+side; mark(path);
     update(ref(db, matchPath+'/sets/'+setNo), { [side]: v }).catch(console.error);
+    maybeAutoCalcSetsWon();
   }
 
-  function saveTeamNames(){
-    const home = $('#nameHome').value.trim();
-    const away = $('#nameAway').value.trim();
-    update(ref(db, matchPath+'/teams'), { home, away }).catch(console.error);
+  // Sets ganados manual
+  window.bumpSetsWon = (side, delta)=>{
+    const id = 'setsWon_'+side; const el = $('#'+id);
+    const next = Math.max(0, clamp0(el.value) + delta); el.value = next;
+    writeSetsWonToDB();
+  };
+  $('#setsWon_home').addEventListener('change', writeSetsWonToDB);
+  $('#setsWon_away').addEventListener('change', writeSetsWonToDB);
+  function writeSetsWonToDB(){
+    const v = { home: clamp0($('#setsWon_home').value), away: clamp0($('#setsWon_away').value) };
+    mark('/setsWon/home'); mark('/setsWon/away');
+    update(ref(db, matchPath+'/setsWon'), v).catch(console.error);
   }
-  $('#nameHome').addEventListener('blur', saveTeamNames);
-  $('#nameAway').addEventListener('blur', saveTeamNames);
-  $('#nameHome').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.target.blur(); }});
-  $('#nameAway').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.target.blur(); }});
 
+  // Toggle autocálculo
+  $('#autoSetsToggle').addEventListener('change', ()=>{
+    const on = $('#autoSetsToggle').checked;
+    $('#setsWon_home').readOnly = on;
+    $('#setsWon_away').readOnly = on;
+    if(on) maybeAutoCalcSetsWon(true);
+  });
+  // Inicial: readonly ON
+  $('#setsWon_home').readOnly = true;
+  $('#setsWon_away').readOnly = true;
+
+  // ====== LÓGICA AUTOCÁLCULO (reglas de vóley) ======
+  function computeSetsWonFromPoints(){
+    let home=0, away=0;
+    for(let s=1; s<=5; s++){
+      const h = clamp0($('#in_home_'+s)?.value);
+      const a = clamp0($('#in_away_'+s)?.value);
+      if(s<=4){
+        const target = 25;
+        if((h>=target || a>=target) && Math.abs(h-a)>=2){
+          if(h>a) home++; else away++;
+        }
+      }else{
+        const target = 15;
+        if((h>=target || a>=target) && Math.abs(h-a)>=2){
+          if(h>a) home++; else away++;
+        }
+      }
+    }
+    return {home, away};
+  }
+
+  function maybeAutoCalcSetsWon(force=false){
+    if(!$('#autoSetsToggle').checked && !force) return;
+    const calc = computeSetsWonFromPoints();
+    const inpH = $('#setsWon_home'), inpA = $('#setsWon_away');
+    const curH = clamp0(inpH.value), curA = clamp0(inpA.value);
+    if(calc.home!==curH) inpH.value = calc.home;
+    if(calc.away!==curA) inpA.value = calc.away;
+    // Escribimos si cambia
+    mark('/setsWon/home'); mark('/setsWon/away');
+    update(ref(db, matchPath+'/setsWon'), calc).catch(console.error);
+  }
+
+  // Heat / serve sections (sin cambios funcionales)
   function heatSetChange(d){
     const cur = clamp0($('#heatSet').value)||1;
     const next = Math.max(1, Math.min(5, cur + d));
@@ -511,15 +581,16 @@
   document.getElementById('btnConnect').addEventListener('click', connect);
   document.getElementById('btnReset').addEventListener('click', async ()=>{
     if(!db||!matchPath) return alert('Conecta primero.');
-    if(!confirm('¿Resetear a 0-0 todos los sets, heatmap, errores y aces?')) return;
+    if(!confirm('¿Resetear a 0-0 todo (incluye sets ganados)?')) return;
     await set(ref(db, matchPath), null);
     const rootRef = ref(db, matchPath);
-    const base = {teams:{home:'HOME',away:'AWAY'}, sets:{}, heat:{setNumber:1,sets:{}}, serveErrors:{}, servePoints:{}};
+    const base = {teams:{home:'HOME',away:'AWAY'}, sets:{}, heat:{setNumber:1,sets:{}}, serveErrors:{}, servePoints:{}, setsWon:{home:0,away:0}};
     for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; }
     for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
     await set(rootRef, base);
   });
 
+  // Pintar inicial para que compute de entrada
   paintScoreTable(); paintHeatTable();
 </script>
 
