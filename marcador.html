@@ -73,6 +73,27 @@
 .row::before{ z-index:0; }
 .row > *{ position:relative; z-index:1; }
 
+
+/* === Pastillas por número y barra sólida === */
+:root{
+  /* colores sólidos de barra (ajusta si quieres) */
+  --rowSolid1:#f49a6a; /* HOME */
+  --rowSolid2:#73afff; /* AWAY */
+}
+/* La barra usa color sólido sin transparencia */
+.row::before{ background: var(--rowSolid1) !important; opacity:1 !important; }
+.row:nth-child(even)::before{ background: var(--rowSolid2) !important; }
+/* Cada número tiene su propia pastilla */
+.score, .win{
+  display:flex; align-items:center; justify-content:center;
+  border-radius:999px; padding:2px 10px;
+  background:rgba(255,255,255,.22);
+}
+/* Total un pelín más oscuro para diferenciar */
+.win{ background:rgba(0,0,0,.35); }
+/* Compacto y sin cortes en los extremos */
+.row{ padding:0 6px; }
+
 </style>
 </head>
 <body>
