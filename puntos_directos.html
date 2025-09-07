@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Puntos directos (Aces) · 3D (OBS · labels pegadas)</title>
+<style>
+  :root{
+    --panel-rgb:30,35,42;  /* base en RGB para controlar transparencia */
+    --ink:#f7fafc;
+    --muted:#a9b3c3;
+    --ring:#ffd24a;
+    --home:#f08962;     /* naranja marcador */
+    --home-dark:#6a3c2b;
+    --away:#5aa0ff;     /* azul marcador */
+    --away-dark:#173a66;
+    --chip:#101317;
+  }
+  html,body{height:100%;margin:0;background:transparent;color:var(--ink);
+    font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{height:100%;display:grid;place-items:center;padding:24px}
+  .card{
+    width:min(1180px,96vw);
+    height:min(640px,90vh);
+    background:rgba(var(--panel-rgb),0.62); /* semi-transparente para OBS */
+    border-radius:16px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    position:relative;overflow:hidden;
+  }
+  .rings{position:absolute;inset:0;pointer-events:none}
+  .rings::before,.rings::after{
+    content:"";position:absolute;top:26px;bottom:26px;width:12px;border-radius:7px;
+    background:linear-gradient(180deg,rgba(255,228,122,.9),rgba(255,210,74,.9));
+    filter:drop-shadow(0 6px 12px rgba(0,0,0,.35));
+  }
+  .rings::before{left:26px} .rings::after{right:26px}
+  .head{position:absolute;inset:22px 72px auto 72px;display:flex;justify-content:space-between;align-items:center}
+  .team{display:flex;align-items:center;gap:10px;font-weight:800;font-size:32px;letter-spacing:.06em;text-transform:uppercase}
+  .swatch{width:16px;height:16px;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+  .swatch.home{background:linear-gradient(180deg,var(--home),var(--home-dark))}
+  .swatch.away{background:linear-gradient(180deg,var(--away),var(--away-dark))}
+  .title{position:absolute;left:50%;top:18px;transform:translateX(-50%);
+         background:linear-gradient(180deg,#f34f6a,#b7223e);
+         padding:12px 24px;border-radius:10px;font-weight:800;letter-spacing:.08em;
+         text-transform:uppercase;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .stage{position:absolute;inset:88px 40px 54px 40px}
+  canvas{display:block;width:100%;height:100%}
+  .value-tag{
+    position:absolute;pointer-events:none;transform:translate(-50%,-120%);
+    background:rgba(16,19,23,.9);color:#fff;padding:4px 8px;border-radius:10px;font-weight:800;font-size:14px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .set-tag{
+    position:absolute;pointer-events:none;
+    background:transparent;color:var(--muted);
+    font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+    /* pegado al borde superior de la base del gráfico */
+    transform:translate(-50%, 2px);
+    text-shadow:0 1px 0 rgba(0,0,0,.6);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="rings" aria-hidden="true"></div>
+    <div class="head">
+      <div class="team"><span class="swatch home"></span><span id="teamL">HOME</span></div>
+      <div class="title">Puntos directos (Aces)</div>
+      <div class="team"><span class="swatch away"></span><span id="teamR">AWAY</span></div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </div>
+</div>
+
+<script type="module">
+  const qs = new URLSearchParams(location.search);
+  const MATCH_ID = qs.get('matchId') || 'test123';
+
+  // Firebase
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+  // Three.js
+  import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+  const cfg = {
+    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+    authDomain: "supervolei-panel-final.firebaseapp.com",
+    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "supervolei-panel-final",
+    storageBucket: "supervolei-panel-final.firebasestorage.app",
+    messagingSenderId: "993690944196",
+    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
+  };
+  initializeApp(cfg);
+  await signInAnonymously(getAuth());
+  const db = getDatabase();
+  const base = (p)=>`matches/${MATCH_ID}/${p}`;
+
+  // Equipos
+  const teamL = document.getElementById('teamL');
+  const teamR = document.getElementById('teamR');
+  onValue(ref(db, base('teams')), (snap)=>{
+    const v = snap.val()||{};
+    teamL.textContent = (v.home||'HOME').toUpperCase();
+    teamR.textContent = (v.away||'AWAY').toUpperCase();
+  });
+
+  // ---------- 3D setup ----------
+  const stage = document.getElementById('stage');
+
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(devicePixelRatio);
+  stage.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 1000);
+  const light = new THREE.DirectionalLight(0xffffff, 1.0);
+  light.position.set(5,8,10);
+  const amb = new THREE.AmbientLight(0xffffff, 0.45);
+  scene.add(light, amb);
+
+  const root = new THREE.Group();
+  scene.add(root);
+
+  // Base
+  const baseGeo = new THREE.BoxGeometry(12, 0.25, 5.5);
+  const baseMat = new THREE.MeshStandardMaterial({color:0x222831, metalness:.2, roughness:.6});
+  const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+  baseMesh.position.set(0,-0.15,0);
+  root.add(baseMesh);
+
+  function resize(){
+    const w = stage.clientWidth;
+    const h = stage.clientHeight;
+    renderer.setSize(w,h,false);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+    camera.position.set(0, 8.5, 14);
+    camera.lookAt(0,2.2,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Overlay containers
+  const overlay = document.createElement('div');
+  overlay.style.position='absolute';
+  overlay.style.inset='0';
+  overlay.style.pointerEvents='none';
+  stage.appendChild(overlay);
+
+  let bars = [];   // {mesh, value, tag}
+  let setTags = []; // DOM labels for set names
+
+  function clearScene(){
+    bars.forEach(b=>root.remove(b.mesh));
+    bars.length = 0;
+    overlay.innerHTML = '';
+    setTags.length = 0;
+  }
+
+  function addValueTag(mesh, value){
+    const tag = document.createElement('div');
+    tag.className = 'value-tag';
+    tag.textContent = value;
+    overlay.appendChild(tag);
+    return tag;
+  }
+  function addSetTag(text){
+    const tag = document.createElement('div');
+    tag.className = 'set-tag';
+    tag.textContent = text;
+    overlay.appendChild(tag);
+    return tag;
+  }
+
+  function projectOverlay(){
+    const {clientWidth:w, clientHeight:h} = renderer.domElement;
+    // value tags
+    bars.forEach(b=>{
+      const pos = b.mesh.position.clone();
+      pos.y += b.mesh.scale.y/2 + 0.5;
+      const v = pos.clone().project(camera);
+      const x = (v.x * .5 + .5) * w;
+      const y = (-v.y * .5 + .5) * h;
+      b.tag.style.transform = `translate(${x}px,${y}px) translate(-50%,-120%)`;
+    });
+    // set labels justo pegadas a la base
+    setTags.forEach(st=>{
+      const pos = new THREE.Vector3(st._x, 0.02, 0);
+      const v = pos.clone().project(camera);
+      const x = (v.x * .5 + .5) * w;
+      const y = (-v.y * .5 + .5) * h;
+      st.style.transform = `translate(${x}px,${y}px) translate(-50%, 2px)`;
+    });
+  }
+
+  function render(){ renderer.render(scene,camera); projectOverlay(); requestAnimationFrame(render) }
+  render();
+  window.addEventListener('resize', projectOverlay);
+
+  function rebuild(data){
+    clearScene();
+    if(!data.length) return;
+
+    const maxVal = Math.max(...data.flatMap(s=>[s.home||0, s.away||0, 1]));
+    const heightScale = 6 / maxVal; // max altura ~6
+
+    const totalWidth = 10;
+    const stride = totalWidth / data.length; // espacio por set
+    const startX = -totalWidth/2 + stride/2;
+
+    data.forEach((s, idx)=>{
+      const xCenter = startX + idx*stride;
+      const pairOffset = 0.5;
+
+      // etiquetas de set pegadas al pie
+      const setLabel = addSetTag(`SET ${s.set}`);
+      setLabel._x = xCenter;
+      setTags.push(setLabel);
+
+      const barsInfo = [
+        {value:s.home||0, color:getCSS('--home'), x:xCenter - pairOffset},
+        {value:s.away||0, color:getCSS('--away'), x:xCenter + pairOffset},
+      ];
+
+      barsInfo.forEach(info=>{
+        const h = Math.max(0.001, info.value * heightScale);
+        const geo = new THREE.BoxGeometry(0.8, h, 0.8);
+        const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(info.color), metalness:.35, roughness:.35});
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(info.x, h/2, 0);
+        root.add(mesh);
+
+        const tag = addValueTag(mesh, info.value);
+        bars.push({mesh, value:info.value, tag});
+      });
+    });
+
+    projectOverlay();
+  }
+
+  function getCSS(varName){
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#ffffff';
+  }
+
+  // ---------- Data wiring (auto refresh) ----------
+  import { onValue as onVal } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+  onVal(ref(db, base('servePoints')), (snap)=>{
+    const v = snap.val()||{};
+    const rows = [];
+    for(const k of Object.keys(v)){
+      const setN = Number(k);
+      const row = v[k]||{};
+      const home = Number(row.home||0);
+      const away = Number(row.away||0);
+      if((home>0) || (away>0)){ rows.push({set:setN, home, away}); }
+    }
+    rows.sort((a,b)=>a.set-b.set);
+    rebuild(rows);
+  });
+</script>
+</body>
+</html>
