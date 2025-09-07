@@ -140,9 +140,11 @@ signInAnonymously(auth).then(attachDBListeners).catch(()=>attachDBListeners());
 
 /***** Datos / agregación (3 zonas por mitad) *****/
 const gridMap=[
-  [[1,'home'], [3,'away']],
+  // Columna 1 = HOME (izquierda), Columna 2 = AWAY (derecha)
+  // Ajuste pedido: intercambiar mapeo de 1ª fila 2ª columna respecto a lo anterior.
+  [[1,'home'], [1,'away']],
   [[2,'home'], [2,'away']],
-  [[3,'home'], [1,'away']],
+  [[3,'home'], [3,'away']],
 ];
 function effectiveSet(){ return currentSet>0 ? currentSet : (setNumber||1); }
 function aggregateFromFirebase(){
@@ -289,7 +291,9 @@ function drawHeatmap(countsHalf, cam, f, sx, sy, dpr){
       const u0=c/2,u1=(c+1)/2,v0=r/3,v1=(r+1)/3;
       const quadWorld=[{x:(u0-.5)*COURT_W,y:(v0-.5)*COURT_H,z:0},{x:(u1-.5)*COURT_W,y:(v0-.5)*COURT_H,z:0},{x:(u1-.5)*COURT_W,y:(v1-.5)*COURT_H,z:0},{x:(u0-.5)*COURT_W,y:(v1-.5)*COURT_H,z:0}];
       const P=quadWorld.map(pw=>{const pr=projectCam(worldToCam(pw,cam),f);return{x:sx+pr.x,y:sy-pr.y};});
-      const zone = [1,2,3][r]; const side = c===0?'home':'away';
+      const zonesCol = (c===0) ? [1,2,3] : [3,2,1];
+      const zone = zonesCol[r];
+      const side = c===0 ? 'home' : 'away';
       const val=countsHalf[side][zone-1]||0; const tot=side==='home'?totHome:totAway; const tHeat=tot>0?Math.min(1,val/tot):0;
       const inset=2*dpr; const cx=(P[0].x+P[1].x+P[2].x+P[3].x)/4, cy=(P[0].y+P[1].y+P[2].y+P[3].y)/4;
       const Q=P.map(pt=>{const dx=pt.x-cx,dy=pt.y-cy,L=Math.hypot(dx,dy)||1;const k=L-inset;return {x:cx+dx*(k/L),y:cy+dy*(k/L)};});
@@ -316,7 +320,7 @@ function drawSetBanner(frame, dpr){
   if (!introFinished) return;
   const setShown = effectiveSet();
   const ord = ordinalES(setShown);
-  const text = `${ord} SET · PORCENTAJE DE ATAQUES Y PUNTOS POR ZONA`;
+  const text = `${ord} SET · PORCENTAJE POR ZONA`;
   const x = frame.x + frame.w/2; const y = frame.y + frame.h - (TEAM_MARGIN * dpr) + 4*dpr;
   ctx.save();
   ctx.font = `${Math.round(BANNER_FS*dpr)}px "Barlow Condensed", Inter, system-ui, Arial`;
