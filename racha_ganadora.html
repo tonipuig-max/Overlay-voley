@@ -29,6 +29,24 @@
   .balls{flex:1 1 auto;display:flex;gap:6px;align-items:center;justify-content:flex-start}
   .ball{font-size:calc(var(--scale)*1.9px);line-height:1;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
   .hidden{display:none !important}
+
+/* === Fallback OBS (sin color-mix) === */
+.title{
+  background: rgba(0,0,0,.45);
+  border: 1px solid rgba(255,255,255,.5);
+}
+.home .title{
+  background: #a3551e;
+  border-color: rgba(255,255,255,.6);
+  /* Navegadores modernos usarán esta línea (OBS la ignora) */
+  background: color-mix(in srgb, var(--home) 85%, white);
+}
+.away .title{
+  background: #0b63b6;
+  border-color: rgba(255,255,255,.6);
+  background: color-mix(in srgb, var(--away) 85%, white);
+}
+
 </style>
 </head>
 <body>
