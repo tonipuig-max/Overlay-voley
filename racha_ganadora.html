@@ -30,22 +30,13 @@
   .ball{font-size:calc(var(--scale)*1.9px);line-height:1;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
   .hidden{display:none !important}
 
-/* === Fallback OBS (sin color-mix) === */
-.title{
-  background: rgba(0,0,0,.45);
-  border: 1px solid rgba(255,255,255,.5);
+/* === OBS solid fallback (irrompible) === */
+.obs-solid .title{
+  background: rgba(0,0,0,0.85) !important; /* base */
+  border: 1px solid rgba(255,255,255,.6) !important;
 }
-.home .title{
-  background: #a3551e;
-  border-color: rgba(255,255,255,.6);
-  /* Navegadores modernos usarán esta línea (OBS la ignora) */
-  background: color-mix(in srgb, var(--home) 85%, white);
-}
-.away .title{
-  background: #0b63b6;
-  border-color: rgba(255,255,255,.6);
-  background: color-mix(in srgb, var(--away) 85%, white);
-}
+.obs-solid .home .title{ background: #a3551e !important; }
+.obs-solid .away .title{ background: #0b63b6 !important; }
 
 </style>
 </head>
@@ -195,5 +186,35 @@
   // Inicio
   await bindSetListeners(currentSet);
 </script>
+
+<script>
+(function(){
+  var supportsColorMix = false;
+  try{
+    supportsColorMix = CSS && CSS.supports && CSS.supports('background','color-mix(in srgb, black 50%, white)');
+  }catch(e){ supportsColorMix = false; }
+  if(!supportsColorMix){
+    document.body.classList.add('obs-solid');
+    // Refuerzo por JS: si existe un título, fuerzo color sólido inline
+    var setSolid = function(){
+      var titles = document.querySelectorAll('.title');
+      titles.forEach(function(el){
+        var isHome = el.closest('.home');
+        var color = isHome ? '#a3551e' : '#0b63b6';
+        el.style.backgroundColor = color;           // inline override
+        el.style.borderColor = 'rgba(255,255,255,.6)';
+      });
+    };
+    setSolid();
+    // Por si el widget cambia dinámicamente el equipo/racha:
+    var root = document.querySelector('#root') || document.body;
+    if (root && window.MutationObserver){
+      var mo = new MutationObserver(function(){ setSolid(); });
+      mo.observe(root, {subtree:true, attributes:true, childList:true});
+    }
+  }
+})();
+</script>
+
 </body>
 </html>
