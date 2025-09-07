@@ -1,160 +1,117 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OBS Marcador Vóley (Firebase · fondo transparente)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Marcador FIVB Style · UNA SOLA LÍNEA · Firebase</title>
 <style>
-  /* Fondo general transparente */
-  html,body{margin:0;padding:0;background:transparent}
-  :root{
-    --scale:16;
-    --fg:#ffffff;
-    --sub:#fffae5;
-    --row1:rgba(255,102,0,0.65);  /* naranja */
-    --row2:rgba(0,128,255,0.65);  /* azul */
-    --border:#ffffff;
-    --badge:rgba(255,255,255,.25);
-    --badge-bd:rgba(255,255,255,.6);
-    --radius:10px;
-    --gap:6px;
-    --padY: calc(var(--scale)*0.25px);
-    --padX: calc(var(--scale)*0.35px);
-    --win-bg: rgba(0,0,0,.38);
-    --win-bd: rgba(255,255,255,.45);
-  }
-  /* El wrapper no pinta fondo */
-  .wrap{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--fg);
-        font-size:calc(var(--scale)*1px);line-height:1.1;display:inline-block;background:transparent}
-  /* Estructuras sin fondo */
-  .head,.table{display:grid;gap:var(--gap);background:transparent}
-  /* Cualquier celda sin fondo salvo las filas de marcador */
-  .cell{display:flex;align-items:center;justify-content:center;white-space:nowrap;
-        min-width:calc(var(--scale)*1.6px);background:transparent}
-  .head .cell{color:var(--sub);text-transform:uppercase;font-weight:700;letter-spacing:.4px;
-              padding:2px 0;background:transparent}
-  /* Filas del marcador sí tienen fondo (naranja/azul) */
-  .row{display:grid;align-items:center;gap:var(--gap);padding:var(--padY) var(--padX);
-       border-radius:var(--radius);backdrop-filter:blur(2px);background:transparent}
-  .row:nth-child(odd){background:var(--row1)}
-  .row:nth-child(even){background:var(--row2)}
-  .team{justify-content:flex-start;font-weight:800;overflow:hidden;text-overflow:ellipsis}
-  .team-pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--badge);border:1px solid var(--badge-bd)}
-  .score{font-weight:900;font-variant-numeric:tabular-nums;font-size:calc(var(--scale)*1.25px);
-  padding:2px 10px;border-radius:10px;background:rgba(255,255,255,.22)}
+  /* Fondo transparente para OBS */
+  html, body { margin:0; padding:0; background:transparent; height:100%; }
+  :root{ --panel: rgba(18,22,28,.82); --accent: #e04662; --accent-d: #b2334a; --text: #f7fafc; }
 
-  .divider-h{border-left:0;padding-left:calc(var(--padX))}
-  .win{font-weight:900; font-variant-numeric:tabular-nums; font-size:calc(var(--scale)*1.25px); padding:2px 10px; border-radius:999px;
-       background:rgba(0,0,0,.60); border:rgba(255,255,255,.60); min-width:2.4em; justify-content:center}
-  .shadow-on *{text-shadow:0 2px 3px rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.4)}
+  /* Contenedor centrado y SIN recortes */
+  .wrap{ display:flex; align-items:center; justify-content:center; height:100%; overflow:visible; }
+
+  /* >>> BARRA EN UNA ÚNICA LÍNEA <<< */
+  .scorebar{
+    display:flex; flex-wrap:nowrap; align-items:center; gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    backdrop-filter: blur(2px);
+    white-space:nowrap;
+  }
+
+  /* Posible escalado por URL (?scale=0.9) para caber en escenas estrechas */
+  .scale { transform-origin:left center; }
+
+  .team{ color: var(--text); font: 800 34px/1.05 Inter, system-ui, Arial; letter-spacing: .5px; min-width: 90px; text-align:left; }
+  .team.right{ text-align:right; }
+
+  .setsBox{ display:flex; flex-direction:column; align-items:center; justify-content:center; width:70px; flex:0 0 auto; }
+  .setsLabel{ color:#ff7d93; text-transform:uppercase; font: 800 12px/1 Inter,system-ui,Arial; letter-spacing:.8px; }
+  .setsValue{ margin-top:4px; min-width: 44px; text-align:center; color:#fff; background:#12161c; border-radius: 8px; padding: 7px 12px;
+              font: 800 22px/1 Inter, system-ui, Arial; box-shadow: inset 0 0 0 2px rgba(255,255,255,.06); }
+
+  .trap{ position:relative; width: 110px; height: 68px; flex:0 0 auto;
+         background: linear-gradient(to bottom, var(--accent), var(--accent-d));
+         clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+         display:flex; align-items:center; justify-content:center;
+         box-shadow: 0 6px 22px rgba(224,70,98,.35); }
+  .trap.right{ clip-path: polygon(0 0, 90% 0, 100% 100%, 10% 100%); }
+  .trap .pts{ color:#fff; font: 900 40px/1 Inter, system-ui, Arial; text-shadow: 0 3px 8px rgba(0,0,0,.35); }
+
+  .mid{ width: 38px; height: 58px; border-radius: 9px; background: linear-gradient(180deg, #10151b, #0b0f14);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.06); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .mid::before{ content:""; display:block; width: 10px; height: 36px; border-radius: 5px; background: linear-gradient(180deg, #e9edf1, #9aa5b1);
+                mask: radial-gradient(6px 18px at 50% 35%, transparent 45%, black 46%), radial-gradient(7px 7px at 50% 75%, black 48%, transparent 49%); }
+
+  .ring{ width: 10px; height: 72px; border-radius: 6px; background: linear-gradient(180deg,#ffdf54,#e4b301); flex:0 0 auto; }
+
+  /* Evita que en pantallas pequeñas se rompa a 2 líneas.
+     En su lugar, el usuario puede pasar ?scale=0.85 para encoger. */
+  @media (max-width:900px){
+    .team{ font-size:28px; min-width:72px; }
+    .trap{ width: 92px; height: 58px; }
+    .trap .pts{ font-size: 34px; }
+    .setsBox{ width:60px; }
+  }
+
+  #dbg{ position:fixed; left:8px; bottom:8px; color:#a7f3d0; background:rgba(0,0,0,.75);
+        border:1px solid #10b981; padding:8px 10px; border-radius:10px; display:none;
+        font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
 </style>
 </head>
 <body>
-<div id="root" class="wrap">
-  <div id="head" class="head"></div>
-  <div id="table" class="table"></div>
+<div class="wrap">
+  <div class="scorebar scale" id="bar">
+    <div class="ring"></div>
+    <div class="team" id="homeCode">HOME</div>
+    <div class="setsBox"><div class="setsLabel">SETS</div><div class="setsValue" id="homeSets">0</div></div>
+    <div class="trap"><div class="pts" id="homePts">0</div></div>
+    <div class="mid"></div>
+    <div class="trap right"><div class="pts" id="awayPts">0</div></div>
+    <div class="setsBox"><div class="setsLabel">SETS</div><div class="setsValue" id="awaySets">0</div></div>
+    <div class="team right" id="awayCode">AWY</div>
+    <div class="ring"></div>
+  </div>
 </div>
+<pre id="dbg"></pre>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script>
+(function(){
+  const qs = new URLSearchParams(location.search);
+  const MATCH_ID = qs.get('matchId') || 'test123';
+  const DEBUG = qs.get('debug') === '1';
+  const SCALE = parseFloat(qs.get('scale')||'1');
+  document.getElementById('bar').style.transform = `scale(${isFinite(SCALE)?SCALE:1})`;
 
-  // ===== Parámetros
-  const p=new URLSearchParams(location.search);
-  const COLS=Math.min(5,Math.max(1,parseInt(p.get('cols')||'5',10)));
-  const SCALE=Math.max(12,parseInt(p.get('scale')||'16',10));
-  const SHADOW=p.get('shadow')==='1';
-  const MATCH_ID = p.get('matchId') || 'test123';
+  const dbg = document.getElementById('dbg');
+  const log = (...a)=>{ if(DEBUG){ dbg.style.display='block'; dbg.textContent += a.join(' ')+'\\n'; }};
 
-  document.documentElement.style.setProperty('--scale',SCALE);
-  if(SHADOW)document.getElementById('root').classList.add('shadow-on');
+  const accent = qs.get('accent') || null;
+  const accentD= qs.get('accentD')|| null;
+  if (accent)  document.documentElement.style.setProperty('--accent',  accent);
+  if (accentD) document.documentElement.style.setProperty('--accent-d',accentD);
 
-  const $=s=>document.querySelector(s);
-  const headEl=$('#head'), tableEl=$('#table');
+  const code3 = (name, fallback) => {
+    if(!name) return fallback || '---';
+    const letters = (name.match(/[A-ZÁÉÍÓÚÜÑ]/gi) || []).join('').toUpperCase();
+    return (letters.replaceAll('Ç','C').replaceAll('Ñ','N') || fallback || '---').slice(0,3);
+  };
 
-  // Grid: Team | sets (sin etiquetas) | WIN
-  const gridTemplate = cols => `minmax(${SCALE*7}px,1fr)` + ' auto'.repeat(cols) + ' auto';
+  const base = `matches/${MATCH_ID}`;
+  const TEAMS = `${base}/teams`;
+  const SETS  = `${base}/sets`;
+  const WINS  = `${base}/setsWon`;
+  const CURR  = [`${base}/ui/currentSet`, `${base}/setNumber`];
 
-  function buildHead(cols){
-    headEl.innerHTML='';
-    headEl.style.gridTemplateColumns=gridTemplate(cols);
-    const blank=document.createElement('div'); blank.className='cell'; headEl.appendChild(blank);
-    for(let i=1;i<=cols;i++){ const c=document.createElement('div'); c.className='cell'; c.textContent=''; headEl.appendChild(c); }
-    const cW=document.createElement('div'); cW.className='cell'; cW.textContent=''; headEl.appendChild(cW);
-  }
-
-  function buildRow(label, cols){
-    const r=document.createElement('div');
-    r.className='row';
-    r.style.gridTemplateColumns=gridTemplate(cols);
-
-    const t=document.createElement('div');
-    t.className='cell team';
-    t.innerHTML=`<span class="team-pill">${label}</span>`;
-    r.appendChild(t);
-
-    for(let i=0;i<cols;i++){ const c=document.createElement('div'); c.className='cell score'; c.textContent='—'; r.appendChild(c); }
-    const cW=document.createElement('div'); cW.className='cell win divider-h'; cW.textContent='0'; r.appendChild(cW);
-    return r;
-  }
-
-  function calcVisibleCols(hist){
-    let visible=0;
-    for(let i=0;i<COLS;i++){
-      const r=hist[i]||{};
-      const ph=Number(r.points_home||0);
-      const pa=Number(r.points_away||0);
-      if (ph===0 && pa===0) break;
-      visible = i+1;
-    }
-    return visible || 1;
-  }
-
-  function render(names, hist, wins){
-    const cols = calcVisibleCols(hist);
-    headEl.innerHTML=''; tableEl.innerHTML='';
-    buildHead(cols);
-    const rowH=buildRow(names.home, cols);
-    const rowA=buildRow(names.away, cols);
-    tableEl.appendChild(rowH); tableEl.appendChild(rowA);
-
-    for(let i=0;i<cols;i++){
-      const r=hist[i]||{};
-      rowH.children[1+i].textContent = String(Number(r.points_home||0));
-      rowA.children[1+i].textContent = String(Number(r.points_away||0));
-    }
-
-    rowH.children[1+cols].textContent = String(wins.home||0);
-    rowA.children[1+cols].textContent = String(wins.away||0);
-  }
-
-  // Estado y re-render mínimo
-  let names = {home:'HOME', away:'AWAY'};
-  let hist = Array.from({length:5}, ()=>({points_home:0, points_away:0}));
-  let wins = {home:0, away:0};
-  let lastSnap='';
-
-  function computeWinsFromHist(hist, cols){
-    let wH=0, wA=0;
-    for(let i=0;i<cols;i++){
-      const r=hist[i]||{}; const ph=Number(r.points_home||0); const pa=Number(r.points_away||0);
-      if (ph>pa) wH++; else if (pa>ph) wA++;
-    }
-    return {home:wH, away:wA};
-  }
-
-  function maybeRender(){
-    const cols = calcVisibleCols(hist);
-    const fallback = computeWinsFromHist(hist, cols);
-    const useWins = {home: (typeof wins.home==='number'?wins.home:fallback.home),
-                     away: (typeof wins.away==='number'?wins.away:fallback.away)};
-    const snap = JSON.stringify({names, cols, hist: hist.slice(0,cols), wins:useWins});
-    if (snap !== lastSnap){ lastSnap=snap; render(names, hist, useWins); }
-  }
-
-  // ===== Firebase =====
-  const firebaseConfig = {
+  const cfg = {
     apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
     authDomain: "supervolei-panel-final.firebaseapp.com",
     databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
@@ -163,40 +120,49 @@
     messagingSenderId: "993690944196",
     appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
   };
-  initializeApp(firebaseConfig);
-  await signInAnonymously(getAuth());
-  const db = getDatabase();
-  const base = `matches/${MATCH_ID}`;
+  firebase.initializeApp(cfg);
+  firebase.auth().signInAnonymously().then(()=>{
+    firebase.database().ref(TEAMS).on('value', s=>{
+      const v=s.val()||{};
+      document.getElementById('homeCode').textContent = code3(v.home,'HME');
+      document.getElementById('awayCode').textContent = code3(v.away,'AWY');
+      log('teams', JSON.stringify(v));
+    });
+    firebase.database().ref(WINS).on('value', s=>{
+      const v=s.val()||{};
+      document.getElementById('homeSets').textContent = Number(v.home||0);
+      document.getElementById('awaySets').textContent = Number(v.away||0);
+      log('wins', JSON.stringify(v));
+    });
 
-  onValue(ref(db, `${base}/teams`), s=>{
-    const v=s.val()||{};
-    names = { home: String(v.home||'HOME'), away: String(v.away||'AWAY') };
-    maybeRender();
-  });
+    let currentSetFb = 1; let displaySet = 1;
+    CURR.forEach(p=>firebase.database().ref(p).on('value', s=>{
+      const n = Number(s.val()||0);
+      if(n) currentSetFb = Math.max(1, Math.min(5, n));
+      pickDisplaySet(); updatePoints(); log('currSetFb', currentSetFb, 'from', p);
+    }));
 
-  onValue(ref(db, `${base}/sets`), s=>{
-    const v=s.val()||{};
-    const out = [];
-    for (let i=1;i<=5;i++){
-      const node = v[i] || {};
-      out.push({
-        points_home: Number(node.home||0),
-        points_away: Number(node.away||0)
-      });
+    let setsCache = {};
+    firebase.database().ref(SETS).on('value', s=>{ setsCache = s.val()||{}; pickDisplaySet(); updatePoints(); log('sets', JSON.stringify(setsCache)); });
+
+    function setFromCache(idx){ return setsCache[String(idx)] || setsCache[idx] || {}; }
+    function hasPoints(node){ const h=Number(node.home||0)||0, a=Number(node.away||0)||0; return (h>0 || a>0); }
+    function highestSetWithPoints(){ let hi=0; for(let i=1;i<=5;i++){ if(hasPoints(setFromCache(i))) hi=i; } return hi; }
+    function pickDisplaySet(){
+      // Si el siguiente set empieza a puntuar antes de que actualicen currentSet en Firebase,
+      // avanzamos automáticamente para mostrarlo.
+      const hi = highestSetWithPoints();
+      if (hi >= currentSetFb) displaySet = hi || currentSetFb || 1;
+      else displaySet = currentSetFb || hi || 1;
     }
-    hist = out;
-    maybeRender();
-  });
-
-  onValue(ref(db, `${base}/setsWon`), s=>{
-    const v=s.val();
-    if (v && typeof v.home !== 'undefined' && typeof v.away !== 'undefined'){
-      wins = { home: Number(v.home||0), away: Number(v.away||0) };
-    } else {
-      wins = { home: undefined, away: undefined };
+    function updatePoints(){
+      const node = setFromCache(displaySet);
+      const hp = Number(node.home||0), ap = Number(node.away||0);
+      document.getElementById('homePts').textContent = isFinite(hp)?hp:0;
+      document.getElementById('awayPts').textContent = isFinite(ap)?ap:0;
     }
-    maybeRender();
   });
+})();
 </script>
 </body>
 </html>
