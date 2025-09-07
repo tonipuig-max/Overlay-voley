@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OBS · Errores & Aces · Multi‑set (3D)</title>
+<style>
+  :root{
+    --bg: transparent;
+    --card-bg: rgba(20,22,26,.80); /* misma transparencia que overlay */
+    --card-bd: rgba(255,255,255,.12);
+    --ring: rgba(255,255,255,.28);
+    --txt: #E5E7EB;
+    --muted: #9CA3AF;
+    --radius: 14px;
+  }
+  html,body{margin:0;height:100%;background:var(--bg)}
+  body{display:grid;place-items:center;padding:0}
+  .wrap{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;align-items:center;max-width:96vw}
+  .card{
+    background:var(--card-bg); border:1px solid var(--card-bd); border-radius:var(--radius);
+    box-shadow:0 22px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+    padding:14px 16px 18px; position:relative; overflow:hidden; backdrop-filter: blur(2px);
+  }
+  .title{color:var(--txt); font:700 16px/1.2 Inter,system-ui,Arial; margin:0 0 6px 2px}
+  .subtitle{color:var(--muted); font:500 12px/1 Inter,system-ui,Arial; margin:0 0 8px 2px}
+  .legend{display:flex;gap:10px;align-items:center;color:var(--muted);font:600 12px/1 Inter,system-ui,Arial;margin:8px 0 -2px 2px}
+  .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:6px;border:1px solid rgba(255,255,255,.35)}
+  canvas{display:block; width: 520px; height: 230px;} /* más alto para que no corte labels */
+  @media (max-width: 1200px){ canvas{width: 460px; height: 210px;} }
+  @media (max-width: 980px) { canvas{width: 420px; height: 200px;} }
+  @media (max-width: 860px) { canvas{width: 360px; height: 190px;} }
+  .badge{
+    position:absolute; top:8px; right:10px; padding:5px 9px; border-radius:999px;
+    background:rgba(255,255,255,.08); border:1px solid var(--ring); color:var(--txt);
+    font:700 11px/1 Inter,system-ui,Arial; letter-spacing:.3px;
+  }
+  #dbg{position:fixed;left:10px;bottom:10px;z-index:99999;display:none;
+      max-width:60vw;max-height:42vh;overflow:auto;background:rgba(0,0,0,.86);
+      color:#a7f3d0;border:1px solid #10b981;padding:10px 12px;border-radius:10px;
+      font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="badge" id="badge1">Sets detectados</div>
+      <h3 class="title">Errores de saque</h3>
+      <div class="subtitle" id="subErr">Comparativa por set</div>
+      <div class="legend"><span class="dot" id="dotHome"></span><span id="labHome">HOME</span> · <span class="dot" id="dotAway"></span><span id="labAway">AWAY</span></div>
+      <canvas id="err"></canvas>
+    </div>
+    <div class="card">
+      <div class="badge" id="badge2">Sets detectados</div>
+      <h3 class="title">Aces</h3>
+      <div class="subtitle" id="subAce">Comparativa por set</div>
+      <div class="legend"><span class="dot" id="dotHome2"></span><span id="labHome2">HOME</span> · <span class="dot" id="dotAway2"></span><span id="labAway2">AWAY</span></div>
+      <canvas id="ace"></canvas>
+    </div>
+  </div>
+  <pre id="dbg"></pre>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
+<script>
+(function(){
+  const qs = new URLSearchParams(location.search);
+  const DEBUG = qs.get('debug')==='1';
+  const dbg = document.getElementById('dbg');
+  const log = (...a)=>{ if(!DEBUG) return; dbg.style.display='block'; dbg.textContent += a.join(' ') + "\\n"; dbg.scrollTop = dbg.scrollHeight; };
+
+  const MATCH_ID = qs.get('matchId') || 'test123';
+  const HOME_COLOR = qs.get('homeColor') || '#d97706';
+  const AWAY_COLOR = qs.get('awayColor') || '#2563eb';
+  let TEAM_HOME = qs.get('homeName') || 'HOME';
+  let TEAM_AWAY = qs.get('awayName') || 'AWAY';
+
+  const ERR_PATH  = `matches/${MATCH_ID}/serveErrors`;
+  const ACE_PATH  = `matches/${MATCH_ID}/servePoints`;
+  const TEAMS_PATH = `matches/${MATCH_ID}/teams`;
+  const CURRENT_SET_PATHS = [`matches/${MATCH_ID}/ui/currentSet`,`matches/${MATCH_ID}/setNumber`];
+
+  const cfg = {
+    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+    authDomain: "supervolei-panel-final.firebaseapp.com",
+    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "supervolei-panel-final",
+    storageBucket: "supervolei-panel-final.firebasestorage.app",
+    messagingSenderId: "993690944196",
+    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
+  };
+  firebase.initializeApp(cfg);
+  firebase.auth().signInAnonymously().then(()=>{
+    const db=firebase.database();
+    firebase.database().ref(TEAMS_PATH).on('value', s=>{
+      const v=s.val()||{}; TEAM_HOME=v.home||TEAM_HOME; TEAM_AWAY=v.away||TEAM_AWAY;
+      ['labHome','labHome2'].forEach(id=>document.getElementById(id).textContent=TEAM_HOME);
+      ['labAway','labAway2'].forEach(id=>document.getElementById(id).textContent=TEAM_AWAY);
+    });
+    document.getElementById('dotHome').style.background=HOME_COLOR;
+    document.getElementById('dotHome2').style.background=HOME_COLOR;
+    document.getElementById('dotAway').style.background=AWAY_COLOR;
+    document.getElementById('dotAway2').style.background=AWAY_COLOR;
+
+    firebase.database().ref(ERR_PATH).on('value', s=>{ rawErr=s.val()||{}; log('serveErrors:', JSON.stringify(rawErr)); redraw(); });
+    firebase.database().ref(ACE_PATH).on('value', s=>{ rawAce=s.val()||{}; log('servePoints:', JSON.stringify(rawAce)); redraw(); });
+    CURRENT_SET_PATHS.forEach(p=>firebase.database().ref(p).on('value', s=>{ currentSet = Number(s.val()||0)||currentSet; redraw(); }));
+  });
+
+  let rawErr={}, rawAce={}, currentSet=1;
+
+  const errCtx = document.getElementById('err').getContext('2d');
+  const aceCtx = document.getElementById('ace').getContext('2d');
+
+  function collectMulti(node){
+    // Devuelve solo sets con datos reales (h>0 || a>0)
+    const sets = [];
+    for(let i=1;i<=5;i++){
+      const k=String(i);
+      const n = node?.[k];
+      let h = 0, a = 0;
+      if (n && typeof n==='object'){
+        h = Number(n.home ?? n.HOME ?? 0);
+        a = Number(n.away ?? n.AWAY ?? 0);
+      }else{
+        h = Number(node?.home?.[k] ?? 0);
+        a = Number(node?.away?.[k] ?? 0);
+      }
+      if (!Number.isFinite(h)) h = parseFloat(String(h).replace(',','.'))||0;
+      if (!Number.isFinite(a)) a = parseFloat(String(a).replace(',','.'))||0;
+      if (h>0 || a>0) sets.push(i); // **solo si hay datos**
+    }
+    const labels=[], values=[];
+    sets.forEach(s=>{ labels.push(`S${s}`); labels.push(`S${s}`); values.push(getVal(node,s,'home')); values.push(getVal(node,s,'away')); });
+    return {labels, values, sets};
+  }
+  function getVal(node, set, side){
+    const k=String(set);
+    let v;
+    if (node?.[k] && typeof node[k]==='object'){ v = node[k][side] ?? node[k][side?.toUpperCase()]; }
+    else{ v = node?.[side]?.[k]; }
+    if (v==null) return 0;
+    const n = typeof v==='string' ? parseFloat(v.replace(',','.')) : Number(v);
+    return isFinite(n)?n:0;
+  }
+
+  // === Dibujo 3D (con más espacio inferior para etiquetas) ===
+  function drawBars3D(ctx, labels, values, colors, animT=1){
+    const dpr=Math.max(1,window.devicePixelRatio||1);
+    const cssW=ctx.canvas.clientWidth||520, cssH=ctx.canvas.clientHeight||230;
+    ctx.canvas.width=Math.round(cssW*dpr); ctx.canvas.height=Math.round(cssH*dpr);
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,ctx.canvas.width, ctx.canvas.height);
+    const W=ctx.canvas.width, H=ctx.canvas.height;
+
+    const padX = 28*dpr, padYtop = 24*dpr, padYbot = 36*dpr; // más base inferior para que no corte texto
+    const plotW = W - padX*2, plotH = H - padYtop - padYbot;
+    const maxV=Math.max(1,...values.map(v=>Number(v||0)));
+
+    const bars = values.length;
+    const baseBar = plotW/(bars*1.4);
+    const barW = Math.min(100*dpr, baseBar)/2; // estrechas
+    const gap = Math.max(14*dpr,(plotW-barW*bars)/(bars+1));
+    let x = padX + gap;
+
+    const tx=10*dpr, ty=6*dpr;
+
+    // eje
+    ctx.strokeStyle='rgba(255,255,255,.10)'; ctx.lineWidth=1*dpr;
+    ctx.beginPath(); ctx.moveTo(padX, H-padYbot); ctx.lineTo(W-padX, H-padYbot); ctx.moveTo(padX, padYtop); ctx.lineTo(padX, H-padYbot); ctx.stroke();
+
+    for(let i=0;i<bars;i++){
+      const v=Number(values[i]||0), vAnim=v*animT, h=(vAnim/maxV)*(plotH-10*dpr);
+      const bx=x, by=(H-padYbot)-h;
+      const col=(i%2===0)?colors[0]:colors[1]; // alterna por equipo dentro del set
+
+      const gf=ctx.createLinearGradient(0,by,0,by+h); gf.addColorStop(0, shade(col,0)); gf.addColorStop(1, shade(col,-.22));
+      ctx.fillStyle=gf; roundRect(ctx,bx,by,barW,h,9*dpr); ctx.fill();
+
+      // techo y lateral
+      ctx.fillStyle=shade(col,.16); ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx+tx,by-ty); ctx.lineTo(bx+barW+tx,by-ty); ctx.lineTo(bx+barW,by); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=shade(col,-.32); ctx.beginPath(); ctx.moveTo(bx+barW,by); ctx.lineTo(bx+barW+tx,by-ty); ctx.lineTo(bx+barW+tx,by-ty+h); ctx.lineTo(bx+barW,by+h); ctx.closePath(); ctx.fill();
+
+      // valor
+      const r=Math.round(13*dpr), vy=by-8*dpr-ty*.4;
+      ctx.fillStyle='rgba(255,255,255,.95)'; roundRect(ctx,bx+barW/2-18*dpr,vy-r,36*dpr,r,999); ctx.fill();
+      ctx.fillStyle='#0f172a'; ctx.font=`${Math.round(11.5*dpr)}px Inter,system-ui,Arial`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(String(Math.round(vAnim)), bx+barW/2, vy-r/2);
+
+      // etiqueta inferior (S1, S2...)
+      ctx.font=`${Math.round(12*dpr)}px Inter,system-ui,Arial`; ctx.fillStyle='rgba(229,231,235,.96)'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText(labels[i], bx+barW/2, H - padYbot + 10*dpr);
+
+      x += barW + gap;
+    }
+
+    function shade(hex, amt){
+      try{
+        const c=hex.replace('#',''); const num=parseInt(c,16);
+        let r=(num>>16)&255, g=(num>>8)&255, b=num&255;
+        r=Math.min(255,Math.max(0,r+255*amt)); g=Math.min(255,Math.max(0,g+255*amt)); b=Math.min(255,Math.max(0,b+255*amt));
+        return `rgb(${r|0},${g|0},${b|0})`;
+      }catch(e){ return hex; }
+    }
+    function roundRect(ctx,x,y,w,h,r){const rr=Math.min(r,Math.min(w,h)/2);ctx.beginPath();ctx.moveTo(x+rr,y);ctx.arcTo(x+w,y,x+w,y+rr,rr);ctx.arcTo(x+w,y+h,x+w-rr,y+h,rr);ctx.arcTo(x,y+h,x,y+h-rr,rr);ctx.arcTo(x,y,x+rr,y,rr);ctx.closePath();}
+  }
+
+  function redraw(){
+    // Multi-set
+    const err = collectMulti(rawErr);
+    const ace = collectMulti(rawAce);
+    document.getElementById('badge1').textContent = `Sets: ${err.sets.join(', ')}`;
+    document.getElementById('badge2').textContent = `Sets: ${ace.sets.join(', ')}`;
+    drawBars3D(errCtx, err.labels, err.values, [HOME_COLOR, AWAY_COLOR], 1);
+    drawBars3D(aceCtx, ace.labels, ace.values, [HOME_COLOR, AWAY_COLOR], 1);
+  }
+
+  // init labels colors
+  redraw();
+})();
+</script>
+</body>
+</html>
