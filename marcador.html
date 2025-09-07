@@ -6,7 +6,7 @@
 <title>OBS Marcador Vóley (Firebase · fondo transparente)</title>
 <style>
   /* Fondo general transparente */
-  html,body{margin:0;padding:0;background:transparent !important}
+  html,body{margin:0;padding:0;background:transparent}
   :root{
     --scale:16;
     --fg:#ffffff;
@@ -36,8 +36,8 @@
   /* Filas del marcador sí tienen fondo (naranja/azul) */
   .row{display:grid;align-items:center;gap:var(--gap);padding:var(--padY) var(--padX);
        border-radius:var(--radius);backdrop-filter:blur(2px);background:transparent}
-  .row:nth-child(odd){background:transparent}
-  .row:nth-child(even){background:transparent}
+  .row:nth-child(odd){background:var(--row1)}
+  .row:nth-child(even){background:var(--row2)}
   .team{justify-content:flex-start;font-weight:800;overflow:hidden;text-overflow:ellipsis}
   .team-pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--badge);border:1px solid var(--badge-bd)}
   .score{font-weight:900;font-variant-numeric:tabular-nums;font-size:calc(var(--scale)*1.25px);
@@ -47,53 +47,6 @@
   .win{font-weight:900; font-variant-numeric:tabular-nums; font-size:calc(var(--scale)*1.25px); padding:2px 10px; border-radius:999px;
        background:rgba(0,0,0,.60); border:rgba(255,255,255,.60); min-width:2.4em; justify-content:center}
   .shadow-on *{text-shadow:0 2px 3px rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.4)}
-
-/* === OBS: eliminar esquinas negras en filas redondeadas === */
-.wrap, .head, .table, .cell { background: transparent !important; }
-/* La fila no pinta color directamente: lo hace un pseudo-elemento recortado */
-.row{
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius);
-  background: transparent !important;
-  backdrop-filter: none !important;   /* El blur en OBS crea halos/negros */
-}
-.row::before{
-  content: "";
-  position: absolute; inset: 0;
-  border-radius: inherit;
-  background: var(--row1);            /* por defecto la de HOME */
-  box-shadow: inset 0 0 0 0 rgba(0,0,0,0); /* sin halos en bordes */
-}
-.row:nth-child(even)::before{ background: var(--row2); } /* AWAY */
-
-
-/* === Layering fix: ensure content sits above the row background === */
-.row{ position:relative; }
-.row::before{ z-index:0; }
-.row > *{ position:relative; z-index:1; }
-
-
-/* === Pastillas por número y barra sólida === */
-:root{
-  /* colores sólidos de barra (ajusta si quieres) */
-  --rowSolid1:#f49a6a; /* HOME */
-  --rowSolid2:#73afff; /* AWAY */
-}
-/* La barra usa color sólido sin transparencia */
-.row::before{ background: var(--rowSolid1) !important; opacity:1 !important; }
-.row:nth-child(even)::before{ background: var(--rowSolid2) !important; }
-/* Cada número tiene su propia pastilla */
-.score, .win{
-  display:flex; align-items:center; justify-content:center;
-  border-radius:999px; padding:2px 10px;
-  background:rgba(255,255,255,.22);
-}
-/* Total un pelín más oscuro para diferenciar */
-.win{ background:rgba(0,0,0,.35); }
-/* Compacto y sin cortes en los extremos */
-.row{ padding:0 6px; }
-
 </style>
 </head>
 <body>
