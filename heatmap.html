@@ -320,7 +320,7 @@ function drawSetBanner(frame, dpr){
   if (!introFinished) return;
   const setShown = effectiveSet();
   const ord = ordinalES(setShown);
-  const text = `${ord} SET · PORCENTAJE POR ZONA`;
+  const text = `${ord} SET · PORCENTAJE DE ATAQUES Y PUNTOS POR ZONA`;
   const x = frame.x + frame.w/2; const y = frame.y + frame.h - (TEAM_MARGIN * dpr) + 4*dpr;
   ctx.save();
   ctx.font = `${Math.round(BANNER_FS*dpr)}px "Barlow Condensed", Inter, system-ui, Arial`;
