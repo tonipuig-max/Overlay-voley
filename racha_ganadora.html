@@ -3,218 +3,219 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OBS · Racha · Equipo (auto-rebind por set)</title>
+<title>OBS · Racha (FIVB · Trapecios · Auto‑reset + Auto‑avance de set)</title>
 <style>
   html,body{margin:0;padding:0;background:transparent}
   :root{
-    --scale:18;
-    --fg:#ffffff;
-    --shadow:rgba(0,0,0,.75);
-    --pill:rgba(0,0,0,.45);
-    --pill-bd:rgba(255,255,255,.5);
-    --radius:14px;
-    --home:#a3551e;
-    --away:#0b63b6;
+    --panel: rgba(18,22,28,.82);
+    --accent:#e04662;
+    --accent-d:#b2334a;
+    --txt:#f7fafc;
   }
-  .wrap{display:inline-flex;flex-direction:row;align-items:center;gap:10px;
-        font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-        color:var(--fg);text-shadow:0 2px 4px var(--shadow);}
-  .title{flex:0 0 auto; white-space:nowrap;
-         font-weight:900;letter-spacing:.8px;
-         font-size:calc(var(--scale)*1.4px);
-         background:var(--pill);border:1px solid var(--pill-bd);border-radius:var(--radius);
-         padding:6px 14px}
-  .home .title{ background:color-mix(in oklab, var(--home) 70%, transparent); border-color: color-mix(in oklab, #fff 50%, var(--home) 25%) }
-  .away .title{ background:color-mix(in oklab, var(--away) 70%, transparent); border-color: color-mix(in oklab, #fff 50%, var(--away) 25%) }
-  .balls{flex:1 1 auto;display:flex;gap:6px;align-items:center;justify-content:flex-start}
-  .ball{font-size:calc(var(--scale)*1.9px);line-height:1;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+  .wrap{
+    display:inline-flex;align-items:center;gap:14px;
+    background:var(--panel); border:1px solid rgba(255,255,255,.12);
+    border-radius:14px; padding:10px 14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+    backdrop-filter: blur(2px); white-space:nowrap;
+    transform-origin:left center;
+  }
+  .ring{ width:10px;height:72px;border-radius:6px;background:linear-gradient(180deg,#ffdf54,#e4b301);}
+  .title{ color:var(--txt); font:800 28px/1.05 Inter,system-ui,Arial; letter-spacing:.5px; }
+  .team{ font:800 28px/1.05 Inter,system-ui,Arial; color:var(--txt); letter-spacing:.5px; margin-left:6px; }
+
+  .traps{ display:flex; align-items:center; gap:8px; margin-left:8px; }
+  .trap{
+    position:relative; width: 70px; height: 44px;
+    background: linear-gradient(to bottom,var(--accent),var(--accent-d));
+    clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+    box-shadow: 0 6px 22px rgba(224,70,98,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .trap.away{ /* hook futuro: color alternativo por equipo si se desea */ }
+  .trap.idle{ filter:saturate(.15) brightness(.9); box-shadow:none; }
+  .trap .num{ color:#fff; font:900 22px/1 Inter,system-ui,Arial; text-shadow:0 3px 8px rgba(0,0,0,.35); transform: translateY(1px); }
+
   .hidden{display:none !important}
 
-/* === OBS solid fallback (irrompible) === */
-.obs-solid .title{
-  background: rgba(0,0,0,0.85) !important; /* base */
-  border: 1px solid rgba(255,255,255,.6) !important;
-}
-.obs-solid .home .title{ background: #a3551e !important; }
-.obs-solid .away .title{ background: #0b63b6 !important; }
-
+  #dbg{ position:fixed; left:8px; bottom:8px; color:#a7f3d0; background:rgba(0,0,0,.75);
+        border:1px solid #10b981; padding:8px 10px; border-radius:10px; display:none;
+        font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
 </style>
 </head>
 <body>
-<div id="root" class="wrap hidden">
-  <div id="title" class="title">Racha</div>
-  <div id="balls" class="balls"></div>
-</div>
+  <div id="root" class="wrap hidden">
+    <div class="ring"></div>
+    <div class="title">RACHA</div>
+    <div class="team" id="teamCode">---</div>
+    <div class="traps" id="traps"></div>
+    <div class="ring"></div>
+  </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-  import { getDatabase, ref, onValue, get, child } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+  <pre id="dbg"></pre>
 
-  const p=new URLSearchParams(location.search);
-  const MATCH_ID = p.get('matchId') || 'test123';
-  const MIN_RUN = Math.max(1, parseInt(p.get('min')||'3',10));
-  const SCALE = Math.max(12, parseInt(p.get('scale')||'18',10));
-  const HOME_COLOR = p.get('homeColor');
-  const AWAY_COLOR = p.get('awayColor');
-  document.documentElement.style.setProperty('--scale', SCALE);
-  if (HOME_COLOR) document.documentElement.style.setProperty('--home', HOME_COLOR);
-  if (AWAY_COLOR) document.documentElement.style.setProperty('--away', AWAY_COLOR);
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script>
+  (function(){
+    const qs = new URLSearchParams(location.search);
+    const MATCH_ID = qs.get('matchId') || 'test123';
+    const MIN = Math.max(1, parseInt(qs.get('min')||'3',10));
+    const SCALE = parseFloat(qs.get('scale')||'1');
+    const SHOW_IDLE = qs.get('idle') === '1';
+    const DEBUG = qs.get('debug') === '1';
+    const dbg = document.getElementById('dbg');
+    const log = (...a)=>{ if(DEBUG){ dbg.style.display='block'; dbg.textContent += a.join(' ')+'\\n'; }};
+    document.getElementById('root').style.transform = `scale(${isFinite(SCALE)?SCALE:1})`;
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
-    authDomain: "supervolei-panel-final.firebaseapp.com",
-    databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "supervolei-panel-final",
-    storageBucket: "supervolei-panel-final.firebasestorage.app",
-    messagingSenderId: "993690944196",
-    appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
-  };
-  initializeApp(firebaseConfig);
-  await signInAnonymously(getAuth());
-  const db = getDatabase();
-
-  const root = document.getElementById('root');
-  const titleEl = document.getElementById('title');
-  const ballsEl = document.getElementById('balls');
-
-  // Team names
-  let teamHome = 'HOME', teamAway = 'AWAY';
-  onValue(ref(db, `matches/${MATCH_ID}/teams`), s=>{
-    const v = s.val() || {};
-    teamHome = v.home || 'HOME';
-    teamAway = v.away || 'AWAY';
-  });
-
-  // Streak state
-  let currentSet = 1;
-  let lastHome = 0, lastAway = 0;
-  let streakTeam = null;
-  let streakCount = 0;
-
-  function resetStreak(){
-    streakTeam = null;
-    streakCount = 0;
-    root.classList.add('hidden');
-    root.classList.remove('home','away');
-    titleEl.textContent = 'Racha';
-    ballsEl.innerHTML='';
-  }
-
-  function renderStreak(){
-    if (streakCount >= MIN_RUN){
-      root.classList.remove('hidden');
-      root.classList.toggle('home', streakTeam==='home');
-      root.classList.toggle('away', streakTeam==='away');
-      const name = streakTeam==='home' ? teamHome : teamAway;
-      titleEl.textContent = `Racha · ${name}`;
-      ballsEl.innerHTML = "";
-      for(let i=0;i<streakCount;i++){
-        const span = document.createElement('span');
-        span.className = 'ball';
-        span.textContent = '🏐';
-        ballsEl.appendChild(span);
-      }
-    } else {
-      root.classList.add('hidden');
-      root.classList.remove('home','away');
-      titleEl.textContent = 'Racha';
-      ballsEl.innerHTML='';
-    }
-  }
-
-  function handleScoreChange(newH, newA){
-    const dH = newH - lastHome;
-    const dA = newA - lastAway;
-    if ((dH!==0 && dA!==0) || Math.abs(dH)>1 || Math.abs(dA)>1){
-      resetStreak(); return;
-    }
-    if (dH===0 && dA===0) return;
-    const scorer = dH===1 ? 'home' : (dA===1 ? 'away' : null);
-    if (!scorer){ resetStreak(); return; }
-    if (streakTeam === scorer){ streakCount += 1; } else { streakTeam = scorer; streakCount = 1; }
-    renderStreak();
-  }
-
-  // === Rebinding de listeners por set ===
-  let unsubs = []; // guardamos funciones de desuscripción
-  async function bindSetListeners(setNo){
-    // Desuscribir anteriores
-    unsubs.forEach(u=>{ try{ u&&u(); }catch(_){} });
-    unsubs = [];
-
-    // Inicializamos baseline para evitar falsos triggers al enganchar
-    try{
-      const snap = await get(child(ref(db), `matches/${MATCH_ID}/sets/${setNo}`));
-      const node = snap.val() || {home:0, away:0};
-      lastHome = parseInt(node.home||0,10);
-      lastAway = parseInt(node.away||0,10);
-    }catch{ lastHome=0; lastAway=0; }
-
-    // Suscribir a home/away del set activo
-    const u1 = onValue(ref(db, `matches/${MATCH_ID}/sets/${setNo}/home`), s=>{
-      const v = parseInt(s.val()||0,10);
-      handleScoreChange(v, lastAway);
-      lastHome = v;
-    });
-    const u2 = onValue(ref(db, `matches/${MATCH_ID}/sets/${setNo}/away`), s=>{
-      const v = parseInt(s.val()||0,10);
-      handleScoreChange(lastHome, v);
-      lastAway = v;
-    });
-    unsubs.push(u1, u2);
-  }
-
-  // Cambios de setNumber -> rebind + reset racha
-  onValue(ref(db, `matches/${MATCH_ID}/heat/setNumber`), async snap=>{
-    const n = parseInt(snap.val()||1,10);
-    if (!Number.isNaN(n) && n!==currentSet){
-      currentSet = n;
-      resetStreak();
-      await bindSetListeners(currentSet);
-    }
-  });
-
-  // También, si cambia el árbol completo de sets, refrescamos baseline
-  onValue(ref(db, `matches/${MATCH_ID}/sets`), s=>{
-    const all = s.val()||{};
-    const node = all[currentSet] || {home:0, away:0};
-    lastHome = parseInt(node.home||0,10);
-    lastAway = parseInt(node.away||0,10);
-  });
-
-  // Inicio
-  await bindSetListeners(currentSet);
-</script>
-
-<script>
-(function(){
-  var supportsColorMix = false;
-  try{
-    supportsColorMix = CSS && CSS.supports && CSS.supports('background','color-mix(in srgb, black 50%, white)');
-  }catch(e){ supportsColorMix = false; }
-  if(!supportsColorMix){
-    document.body.classList.add('obs-solid');
-    // Refuerzo por JS: si existe un título, fuerzo color sólido inline
-    var setSolid = function(){
-      var titles = document.querySelectorAll('.title');
-      titles.forEach(function(el){
-        var isHome = el.closest('.home');
-        var color = isHome ? '#a3551e' : '#0b63b6';
-        el.style.backgroundColor = color;           // inline override
-        el.style.borderColor = 'rgba(255,255,255,.6)';
-      });
+    // Firebase
+    const cfg = {
+      apiKey: "AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ",
+      authDomain: "supervolei-panel-final.firebaseapp.com",
+      databaseURL: "https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "supervolei-panel-final",
+      storageBucket: "supervolei-panel-final.firebasestorage.app",
+      messagingSenderId: "993690944196",
+      appId: "1:993690944196:web:1a7ea451c03201e6f6ff91"
     };
-    setSolid();
-    // Por si el widget cambia dinámicamente el equipo/racha:
-    var root = document.querySelector('#root') || document.body;
-    if (root && window.MutationObserver){
-      var mo = new MutationObserver(function(){ setSolid(); });
-      mo.observe(root, {subtree:true, attributes:true, childList:true});
-    }
-  }
-})();
-</script>
+    firebase.initializeApp(cfg);
 
+    const code3 = (name, fallback) => {
+      if(!name) return fallback || '---';
+      const letters = (name.match(/[A-ZÁÉÍÓÚÜÑ]/gi) || []).join('').toUpperCase();
+      return (letters.replaceAll('Ç','C').replaceAll('Ñ','N') || fallback || '---').slice(0,3);
+    };
+
+    firebase.auth().signInAnonymously().then(()=>{
+      const base = `matches/${MATCH_ID}`;
+      const teamsRef   = firebase.database().ref(`${base}/teams`);
+      const winsRef    = firebase.database().ref(`${base}/setsWon`);     // fin de set
+      const curr1Ref   = firebase.database().ref(`${base}/ui/currentSet`);
+      const curr2Ref   = firebase.database().ref(`${base}/setNumber`);
+      const setsRef    = firebase.database().ref(`${base}/sets`);        // auto‑avance a set con puntos
+
+      let homeName='HOME', awayName='AWAY';
+      let currentSetFb=1, observedSet=1, activeSet=1;
+      let lastH=0, lastA=0, streakTeam=null, streakCount=0;
+      let rawSets={};
+
+      // === helpers ===
+      const setNode = (n)=> rawSets[String(n)] || rawSets[n] || {};
+      const hasPoints = (n)=>{ const v=setNode(n); const h=Number(v.home||0)||0, a=Number(v.away||0)||0; return (h>0 || a>0); };
+      const highestWithPoints = ()=>{ let hi=0; for(let i=1;i<=5;i++){ if(hasPoints(i)) hi=i; } return hi||1; };
+
+      function unbindSet(){
+        try{ if(window.__homeRef){ window.__homeRef.off(); window.__homeRef=null; } }catch(e){}
+        try{ if(window.__awayRef){ window.__awayRef.off(); window.__awayRef=null; } }catch(e){}
+      }
+      function bindSet(n){
+        unbindSet();
+        activeSet = n;
+        const v = setNode(n); lastH=Number(v.home||0)||0; lastA=Number(v.away||0)||0;
+        reset(); // limpia racha al entrar a set nuevo
+        // Si ya había empezado el set y alguien lleva puntos, sembramos la racha en 1
+        if (lastH>0 && lastA===0){ streakTeam='home'; streakCount=1; }
+        else if (lastA>0 && lastH===0){ streakTeam='away'; streakCount=1; }
+        log('bind -> set', n, 'baseline H/A:', lastH, lastA, 'seeded:', streakTeam, streakCount);
+
+        window.__homeRef = firebase.database().ref(`${base}/sets/${n}/home`);
+        window.__awayRef = firebase.database().ref(`${base}/sets/${n}/away`);
+        window.__homeRef.on('value', s=>{ onScore(Number(s.val()||0), lastA); });
+        window.__awayRef.on('value', s=>{ onScore(lastH, Number(s.val()||0)); });
+      }
+
+      function reconcileActiveSet(){
+        observedSet = highestWithPoints();
+        const desired = Math.max(currentSetFb||1, observedSet||1);
+        if (desired !== activeSet){
+          log('reconcile -> desired set', desired, '(fb:', currentSetFb, 'observed:', observedSet, ')');
+          bindSet(desired);
+        }
+      }
+
+      teamsRef.on('value', s=>{
+        const v=s.val()||{}; homeName=v.home||'HOME'; awayName=v.away||'AWAY'; updateTeam();
+      });
+
+      // Fin de set: resetear racha; al siguiente punto el auto‑avance (setsRef) nos moverá de set si aún no lo hizo currentSet
+      let prevWins=null;
+      winsRef.on('value', s=>{
+        const v=s.val()||{home:0,away:0};
+        if(prevWins===null){ prevWins={home:Number(v.home||0), away:Number(v.away||0)}; }
+        else{
+          const h=Number(v.home||0), a=Number(v.away||0);
+          if(h>prevWins.home || a>prevWins.away){
+            log('fin de set por setsWon -> reset racha');
+            reset();
+          }
+          prevWins={home:h, away:a};
+        }
+      });
+
+      // Set “oficial” desde UI
+      curr1Ref.on('value', s=>{ const n=Number(s.val()||0); if(n){ currentSetFb=n; reconcileActiveSet(); } });
+      curr2Ref.on('value', s=>{ const n=Number(s.val()||0); if(n){ currentSetFb=n; reconcileActiveSet(); } });
+
+      // Observación global de sets para detectar el primer punto del set siguiente
+      setsRef.on('value', s=>{
+        rawSets = s.val()||{};
+        reconcileActiveSet();
+      });
+
+      function updateTeam(){
+        const teamN = streakTeam==='home' ? homeName : (streakTeam==='away' ? awayName : homeName);
+        document.getElementById('teamCode').textContent = code3(teamN, '---');
+      }
+
+      function render(){
+        const root=document.getElementById('root');
+        const holder=document.getElementById('traps');
+        holder.innerHTML='';
+        if (streakCount>=MIN){
+          root.classList.remove('hidden');
+          for(let i=0;i<streakCount;i++){
+            const t=document.createElement('span');
+            t.className='trap' + (streakTeam==='away'?' away':'');
+            if (i===streakCount-1){
+              const num=document.createElement('span');
+              num.className='num';
+              num.textContent=String(streakCount);
+              t.appendChild(num);
+            }
+            holder.appendChild(t);
+          }
+        }else if (SHOW_IDLE){
+          root.classList.remove('hidden');
+          const t=document.createElement('span'); t.className='trap idle'; holder.appendChild(t);
+        }else{
+          root.classList.add('hidden');
+        }
+      }
+      function reset(){ streakTeam=null; streakCount=0; updateTeam(); render(); }
+
+      function onScore(h,a){
+        const dH=h-lastH, dA=a-lastA;
+        log('score change (set '+activeSet+') H:',h,'A:',a,'dH:',dH,'dA:',dA);
+        // cambios inválidos o simultáneos => reset
+        if ((dH!==0 && dA!==0) || Math.abs(dH)>1 || Math.abs(dA)>1){ reset(); }
+        else if (dH===1){
+          if (streakTeam==='home') streakCount+=1; else { streakTeam='home'; streakCount=1; }
+        }
+        else if (dA===1){
+          if (streakTeam==='away') streakCount+=1; else { streakTeam='away'; streakCount=1; }
+        }
+        lastH=h; lastA=a;
+        updateTeam(); render();
+      }
+
+      // init: enganchar al mejor set disponible (fb u observado)
+      bindSet(1);
+      reconcileActiveSet();
+    }).catch(e=>{
+      if(DEBUG){ dbg.style.display='block'; dbg.textContent='auth error: '+(e&&e.message||e); }
+    });
+  })();
+  </script>
 </body>
 </html>
