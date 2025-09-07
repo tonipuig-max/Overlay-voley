@@ -43,7 +43,7 @@
   .score{font-weight:900;font-variant-numeric:tabular-nums;font-size:calc(var(--scale)*1.25px);
   padding:2px 10px;border-radius:10px;background:rgba(255,255,255,.22)}
 
-  .divider-h{border-left:3px solid var(--border);padding-left:calc(var(--padX))}
+  .divider-h{border-left:0;padding-left:calc(var(--padX))}
   .win{font-weight:900; font-variant-numeric:tabular-nums; font-size:calc(var(--scale)*1.25px); padding:2px 10px; border-radius:999px;
        background:rgba(0,0,0,.60); border:rgba(255,255,255,.60); min-width:2.4em; justify-content:center}
   .shadow-on *{text-shadow:0 2px 3px rgba(0,0,0,.55),0 0 12px rgba(0,0,0,.4)}
@@ -81,7 +81,7 @@
     headEl.style.gridTemplateColumns=gridTemplate(cols);
     const blank=document.createElement('div'); blank.className='cell'; headEl.appendChild(blank);
     for(let i=1;i<=cols;i++){ const c=document.createElement('div'); c.className='cell'; c.textContent=''; headEl.appendChild(c); }
-    const cW=document.createElement('div'); cW.className='cell divider-h'; cW.textContent='W'; headEl.appendChild(cW);
+    const cW=document.createElement('div'); cW.className='cell'; cW.textContent=''; headEl.appendChild(cW);
   }
 
   function buildRow(label, cols){
