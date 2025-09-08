@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Widget · Alineaciones (FIVB – lista simple)</title>
 <style>
-  :root{ --panel: #1b2028; --accent: #e04662; --accent-d: #b2334a; --gold: #ffcc33; --text: #f7fafc; }
+  :root{ --panel: rgba(27,32,40,.92); --accent: #e04662; --accent-d: #b2334a; --gold: #ffcc33; --text: #f7fafc; }
   html,body{ margin:0; background:transparent; color:var(--text); height:100%; font:14px/1.4 Inter, system-ui, Arial, sans-serif; }
 
   .wrap{ display:flex; align-items:center; justify-content:center; height:100%; padding:14px; }
@@ -24,13 +24,13 @@
 
   /* CABECERA en trapecio más estrecho */
   .head{ position:relative; padding:10px 0 14px; display:flex; align-items:center; justify-content:center; }
-  .ribbon{ width:85%; margin:0 auto; text-align:center; background:linear-gradient(180deg,var(--accent),var(--accent-d)); color:#fff; font:900 24px/1.3 Inter,system-ui,Arial; letter-spacing:1.2px; text-transform:uppercase; padding:18px 0; clip-path:polygon(12% 0, 88% 0, 100% 100%, 0 100%); box-shadow:0 6px 20px rgba(0,0,0,.45); }
+  .ribbon{ width:75%; margin:0 auto; text-align:center; background:linear-gradient(180deg,var(--accent),var(--accent-d)); color:#fff; font:900 24px/1.3 Inter,system-ui,Arial; letter-spacing:1.2px; text-transform:uppercase; padding:18px 0; clip-path:polygon(14% 0, 86% 0, 100% 100%, 0 100%); box-shadow:0 6px 20px rgba(0,0,0,.45); }
 
   /* DOS COLUMNAS reducidas un 30%, con poco margen respecto tarjeta */
   .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:5px 10px 15px; max-width:90%; margin:0 auto; }
   .col{ background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px; text-align:left }
-  .teamTitle{ margin-bottom:10px; text-align:center; }
-  .teamTitle .name{ font:800 18px/1.1 Inter, system-ui, Arial; letter-spacing:.3px; text-transform:uppercase; display:block; }
+  .teamTitle{ margin-bottom:12px; text-align:center; }
+  .teamTitle .name{ font:800 20px/1.2 Inter, system-ui, Arial; letter-spacing:.4px; text-transform:uppercase; display:inline-block; padding:6px 14px; background:rgba(224,70,98,.25); border-radius:8px; }
 
   /* FILAS */
   .row{ display:grid; grid-template-columns:60px 1fr; align-items:center; gap:10px; padding:10px 12px; border:1px solid rgba(255,255,255,.08); border-radius:10px; background:#2a2f38; }
@@ -40,13 +40,13 @@
 
   .slide{ animation: slide .6s cubic-bezier(.22,.61,.36,1) both }
   @keyframes slide{ from{ opacity:0; transform:translateY(14px) } to{ opacity:1; transform:translateY(0) } }
-  @media (max-width:900px){ .board{ width:90%; } .grid{ grid-template-columns:1fr; max-width:100%; } .ribbon{ width:95%; } }
+  @media (max-width:900px){ .board{ width:90%; } .grid{ grid-template-columns:1fr; max-width:100%; } .ribbon{ width:90%; } }
 </style>
 </head>
 <body>
   <div class="wrap">
     <section class="board slide">
-      <header class="head"><div class="ribbon">Alineaciones</div></header>
+      <header class="head"><div class="ribbon">Alineación</div></header>
       <div class="grid">
         <div class="col">
           <div class="teamTitle">
