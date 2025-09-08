@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Widget · Alineaciones (FIVB – lista simple)</title>
+<style>
+  :root{ --panel: rgba(18,22,28,.82); --accent: #e04662; --accent-d: #b2334a; --text: #f7fafc; }
+  html,body{ margin:0; background:transparent; color:var(--text); height:100%; font:14px/1.4 Inter, system-ui, Arial, sans-serif; }
+
+  .wrap{ display:flex; align-items:center; justify-content:center; height:100%; padding:14px; }
+  .board{ width:70%; background:var(--panel); border-radius:16px; border:1px solid rgba(255,255,255,.12); box-shadow:0 14px 40px rgba(0,0,0,.6), 0 0 25px rgba(224,70,98,.4); overflow:hidden }
+
+  /* CABECERA en trapecio */
+  .head{ position:relative; padding:12px 0 20px; display:flex; align-items:center; justify-content:center; }
+  .ribbon{ flex:1; text-align:center; background:linear-gradient(180deg,var(--accent),var(--accent-d)); color:#fff; font:900 24px/1.3 Inter,system-ui,Arial; letter-spacing:1.2px; text-transform:uppercase; padding:20px 0; clip-path:polygon(12% 0, 88% 0, 100% 100%, 0 100%); box-shadow:0 6px 20px rgba(0,0,0,.45); }
+
+  /* DOS COLUMNAS reducidas un 30% */
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; padding:10px 20px 20px; max-width:70%; margin:0 auto; }
+  .col{ background:rgba(0,0,0,.12); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:16px; text-align:left }
+  .teamTitle{ margin-bottom:14px; text-align:center; }
+  .teamTitle .name{ font:800 18px/1.1 Inter, system-ui, Arial; letter-spacing:.3px; text-transform:uppercase; display:block; }
+
+  /* FILAS */
+  .row{ display:grid; grid-template-columns:50px 1fr; align-items:center; gap:10px; padding:8px 10px; border:1px solid rgba(255,255,255,.08); border-radius:10px; background:rgba(8,12,18,.55); }
+  .row + .row{ margin-top:8px }
+  .num{ text-align:center; font:900 15px/1 Inter, system-ui, Arial; color:#fff; background:#12161c; border-radius:6px; padding:6px 8px; box-shadow: inset 0 0 0 2px rgba(255,255,255,.06); }
+  .player{ font:700 15px/1.2 Inter, system-ui, Arial; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+
+  .slide{ animation: slide .6s cubic-bezier(.22,.61,.36,1) both }
+  @keyframes slide{ from{ opacity:0; transform:translateY(14px) } to{ opacity:1; transform:translateY(0) } }
+  @media (max-width:900px){ .board{ width:90%; } .grid{ grid-template-columns:1fr; max-width:100%; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="board slide">
+      <header class="head"><div class="ribbon">Alineaciones</div></header>
+      <div class="grid">
+        <div class="col">
+          <div class="teamTitle">
+            <div class="name" id="nameL">HOME</div>
+          </div>
+          <div id="listL"></div>
+        </div>
+        <div class="col">
+          <div class="teamTitle">
+            <div class="name" id="nameR">AWAY</div>
+          </div>
+          <div id="listR"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script>
+  (function(){
+    const qs = new URLSearchParams(location.search);
+    const matchId = qs.get('matchId') || 'test123';
+    const sortBy = (qs.get('sort')||'num');
+
+    const cfg={ apiKey:"AIzaSyA4gVcq3UerKAHcmarEPlvkVp-iS7jvDaQ", authDomain:"supervolei-panel-final.firebaseapp.com", databaseURL:"https://supervolei-panel-final-default-rtdb.europe-west1.firebasedatabase.app", projectId:"supervolei-panel-final", storageBucket:"supervolei-panel-final.firebasestorage.app", messagingSenderId:"993690944196", appId:"1:993690944196:web:1a7ea451c03201e6f6ff91" };
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    firebase.auth().signInAnonymously().then(start).catch(()=>start());
+
+    const state={ teams:{home:'HOME',away:'AWAY'}, home:{}, away:{} };
+
+    function p(){return{ teams:`matches/${matchId}/teams`, home:`matches/${matchId}/lineups/home`, away:`matches/${matchId}/lineups/away` }}
+
+    function start(){
+      const {teams,home,away}=p();
+      firebase.database().ref(teams).on('value', s=>{ state.teams = Object.assign({home:'HOME',away:'AWAY'}, s.val()||{}); render(); });
+      firebase.database().ref(home).on('value', s=>{ state.home = s.val()||{}; render(); });
+      firebase.database().ref(away).on('value', s=>{ state.away = s.val()||{}; render(); });
+      render();
+    }
+
+    function mapTeam(obj){
+      let arr = Object.entries(obj||{}).map(([key,val])=>({ key,
+        num:Number(val?.number||val?.num||0), name:String(val?.name||'').trim(), plays:String(val?.plays||'SÍ') }));
+      arr.sort((a,b)=> sortBy==='name' ? a.name.localeCompare(b.name,'es') : a.num-b.num );
+      return arr;
+    }
+
+    function render(){
+      const L = mapTeam(state.home), R = mapTeam(state.away);
+      document.getElementById('nameL').textContent = state.teams.home||'HOME';
+      document.getElementById('nameR').textContent = state.teams.away||'AWAY';
+      document.getElementById('listL').innerHTML = rowsHTML(L);
+      document.getElementById('listR').innerHTML = rowsHTML(R);
+    }
+
+    function rowsHTML(arr){
+      if(!arr.length) return `<div class="row"><div class="num">—</div><div class="player" style="opacity:.7">Sin jugadoras</div></div>`;
+      return arr.map(r=>`<div class="row"><div class="num">${esc(r.num)}</div><div class="player">${esc(r.name)}</div></div>`).join('');
+    }
+
+    function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+  })();
+  </script>
+</body>
+</html>
