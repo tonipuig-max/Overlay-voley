@@ -620,18 +620,67 @@ function manualHeat(side, zone, raw){
   });
 
   document.getElementById('btnConnect').addEventListener('click', connect);
-  document.getElementById('btnReset').addEventListener('click', async ()=>{
-    if(!db||!matchPath) return alert('Conecta primero.');
-    if(!confirm('¿Resetear a 0-0 todo (incluye sets ganados)?')) return;
-    await set(ref(db, matchPath), null);
-    const rootRef = ref(db, matchPath);
-    const base = {teams:{home:'HOME',away:'AWAY'}, sets:{}, heat:{setNumber:1,sets:{}}, serveErrors:{}, servePoints:{}, setsWon:{home:0,away:0}};
-    for(let i=1;i<=5;i++){ base.sets[i]={home:0,away:0}; decided.set(i,false); }
-    for(let s=1;s<=5;s++){ base.heat.sets[s]={home:[0,0,0],away:[0,0,0]}; base.serveErrors[s]={home:0,away:0}; base.servePoints[s]={home:0,away:0}; }
-    await set(rootRef, base);
+  document.getElementById('btnReset').addEventListener('click', async () => {
+    if (!db || !matchPath) return alert('Conecta primero.');
+    if (!confirm('¿Resetear a 0 todo (manteniendo equipos y JUGADORAS)?')) return;
+
+    // Construye estructuras vacías (5 sets)
+    const sets = {};
+    const serveErrors = {};
+    const servePoints = {};
+    const heatSets = {};
+    for (let i = 1; i <= 5; i++) {
+      sets[i] = { home: 0, away: 0 };
+      serveErrors[i] = { home: 0, away: 0 };
+      servePoints[i] = { home: 0, away: 0 };
+      heatSets[i] = { home: [0, 0, 0], away: [0, 0, 0] };
+      decided.set(i, false);
+    }
+
+    const updates = {};
+    updates[`${matchPath}/sets`] = sets;
+    updates[`${matchPath}/setsWon`] = { home: 0, away: 0 };
+    updates[`${matchPath}/serveErrors`] = serveErrors;
+    updates[`${matchPath}/servePoints`] = servePoints;
+    updates[`${matchPath}/heat`] = { setNumber: 1, sets: heatSets };
+    updates[`${matchPath}/ui/currentSet`] = 1; // si la UI usa este nodo
+
+    try {
+      await update(ref(db), updates);
+
+      // Refrescar inputs del panel a 0/1
+      for (let i = 1; i <= 5; i++) {
+        const ih = document.getElementById('in_home_' + i);
+        const ia = document.getElementById('in_away_' + i);
+        if (ih) ih.value = 0;
+        if (ia) ia.value = 0;
+      }
+      document.getElementById('setsWon_home').value = 0;
+      document.getElementById('setsWon_away').value = 0;
+
+      document.getElementById('heatSet').value = 1;
+      document.getElementById('serveErrSet').value = 1;
+      document.getElementById('servePtsSet').value = 1;
+
+      for (let z = 1; z <= 3; z++) {
+        const hh = document.getElementById('heat_home_' + z);
+        const ha = document.getElementById('heat_away_' + z);
+        if (hh) hh.value = 0;
+        if (ha) ha.value = 0;
+      }
+      document.getElementById('serveErr_home').value = 0;
+      document.getElementById('serveErr_away').value = 0;
+      document.getElementById('servePts_home').value = 0;
+      document.getElementById('servePts_away').value = 0;
+
+      alert('Reset realizado. Se han mantenido equipos y jugadoras.');
+    } catch (e) {
+      console.error(e);
+      alert('Error al resetear: ' + e.message);
+    }
   });
 
-  // ===== Autoconexión al cargar =====
+// ===== Autoconexión al cargar =====
   window.addEventListener('DOMContentLoaded', ()=>{
     connect().catch(()=>{/* el alert ya se mostró en connect() */});
   });
