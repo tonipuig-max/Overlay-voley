@@ -335,7 +335,7 @@ function drawSetBanner(frame, dpr){
 function drawTeamLabelsLR(frame, dpr){
   if (!introFinished) return;
   const margin = TEAM_MARGIN * dpr;
-  const y = frame.y + margin; // anchor line for vertical center
+  const y = frame.y + margin + 12*dpr; // anchor line for vertical center
   const cxHome = frame.x + frame.w * 0.25;
   const cxAway = frame.x + frame.w * 0.75;
 
