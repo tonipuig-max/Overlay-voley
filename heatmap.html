@@ -331,19 +331,70 @@ function drawSetBanner(frame, dpr){
   ctx.strokeText(text, x, y); ctx.fillText(text, x, y);
   ctx.restore();
 }
+
 function drawTeamLabelsLR(frame, dpr){
   if (!introFinished) return;
-  const margin = TEAM_MARGIN * dpr; const y = frame.y + margin; const cxHome = frame.x + frame.w * 0.25; const cxAway = frame.x + frame.w * 0.75;
+  const margin = TEAM_MARGIN * dpr;
+  const y = frame.y + margin; // anchor line for vertical center
+  const cxHome = frame.x + frame.w * 0.25;
+  const cxAway = frame.x + frame.w * 0.75;
+
   ctx.save();
   ctx.font = `${Math.round(TEAM_FS*dpr)}px "Barlow Condensed", Inter, system-ui, Arial`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 6*dpr;
-  ctx.strokeStyle = 'rgba(14,165,255,.65)'; ctx.lineWidth = 2.2*dpr;
-  ctx.fillStyle = TEAM_COLOR;
-  if (TEAM_AWAY){ ctx.strokeText(TEAM_AWAY, cxHome, y); ctx.fillText(TEAM_AWAY, cxHome, y); }
-  if (TEAM_HOME){ ctx.strokeText(TEAM_HOME, cxAway, y); ctx.fillText(TEAM_HOME, cxAway, y); }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle'; // vertical centering
+
+  // Style for pill
+  const padX = 14*dpr, padY = 8*dpr;
+  const shadowBlur = 6*dpr;
+
+  function pillWithText(x, text){
+    if(!text) return;
+    const w = ctx.measureText(text).width;
+    const h = Math.round(TEAM_FS*dpr*1.10);
+    const px = x - w/2 - padX;
+    const py = y - (h/2 + padY);
+    const pw = w + padX*2;
+    const ph = h + padY*2;
+    const r = Math.min(999*dpr, ph/2);
+
+    // gradient red (FIVB-style)
+    const grd = ctx.createLinearGradient(px, py, px, py+ph);
+    grd.addColorStop(0, '#E04662');
+    grd.addColorStop(0.6, '#C93B57');
+    grd.addColorStop(1, '#B2334A');
+
+    // pill
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(px+r, py);
+    ctx.arcTo(px+pw, py,   px+pw, py+ph, r);
+    ctx.arcTo(px+pw, py+ph,px,    py+ph, r);
+    ctx.arcTo(px,    py+ph,px,    py,    r);
+    ctx.arcTo(px,    py,   px+pw, py,    r);
+    ctx.closePath();
+    ctx.fillStyle = grd;
+    ctx.shadowColor = 'rgba(0,0,0,.45)';
+    ctx.shadowBlur = shadowBlur;
+    ctx.fill();
+    // subtle inner stroke
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,.12)';
+    ctx.lineWidth = 1*dpr;
+    ctx.stroke();
+
+    // text (centered exactly on y)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  if (TEAM_AWAY){ pillWithText(cxHome, TEAM_AWAY.toUpperCase()); }
+  if (TEAM_HOME){ pillWithText(cxAway, TEAM_HOME.toUpperCase()); }
+
   ctx.restore();
 }
+
 
 /***** Render principal *****/
 let lastAgg={countsHalf:{home:[0,0,0],away:[0,0,0]}};
