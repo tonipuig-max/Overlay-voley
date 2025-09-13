@@ -214,7 +214,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import { getDatabase, ref, onValue, set, update, get, child } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
   // --- CONFIG ---
@@ -310,7 +310,55 @@
     try{ initializeApp(firebaseConfig); }catch(e){}
     try{
       const auth = getAuth(); db = getDatabase();
-      await signInAnonymously(auth);
+
+  // ==== LOGIN FLOW (Email/Password) ====
+  async function showLoginForm(auth){
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('loginOverlay');
+      const form = document.getElementById('loginForm');
+      const emailEl = document.getElementById('loginEmail');
+      const passEl  = document.getElementById('loginPassword');
+      const errEl   = document.getElementById('loginError');
+      const pwToggle = document.getElementById('pwToggle');
+
+      // Toggle password visibility
+      pwToggle?.addEventListener('click', (e)=> {
+        e.preventDefault();
+        const t = passEl.getAttribute('type') === 'password' ? 'text' : 'password';
+        passEl.setAttribute('type', t);
+        pwToggle.textContent = (t === 'password') ? 'mostrar' : 'ocultar';
+      });
+
+      // Autofocus
+      setTimeout(()=> emailEl?.focus(), 0);
+
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        errEl.textContent = '';
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+        if(!email || !password){
+          errEl.textContent = 'Completa email y contraseña.';
+          return;
+        }
+        // Disable UI during attempt
+        form.querySelectorAll('input,button').forEach(el=> el.disabled = true);
+
+        try{
+          const { user } = await signInWithEmailAndPassword(auth, email, password);
+          overlay.style.display = 'none';
+          try { document.getElementById('netmsg').textContent = 'Conectado como ' + (email || ''); } catch(_) {}
+          resolve(user);
+        }catch(err){
+          console.error(err);
+          errEl.textContent = (err && err.message) ? err.message : 'No se pudo iniciar sesión.';
+          form.querySelectorAll('input,button').forEach(el=> el.disabled = false);
+        }
+      }, { once:false });
+    });
+  }
+
+      await showLoginForm(auth);
       matchPath = 'matches/'+FIXED_MATCH_ID;
       net(true,'Conectado');
       await ensureStructure();
@@ -733,6 +781,67 @@
   paintScoreTable(); paintHeatTable();
   updateHeadersFromInputs();
 </script>
+
+
+<!-- === Login Overlay === -->
+<style>
+  .login-overlay{
+    position:fixed; inset:0; background:linear-gradient(180deg, rgba(15,23,42,.75), rgba(15,23,42,.85));
+    display:flex; align-items:center; justify-content:center; z-index:9999;
+  }
+  .login-card{
+    width:min(420px,92vw); background:#fff; border-radius:16px; border:1px solid #e5e7eb;
+    box-shadow:0 10px 30px rgba(0,0,0,.15); padding:22px;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  }
+  .login-title{ margin:0 0 6px; font-size:22px; font-weight:800; color:#111827; }
+  .login-sub{ margin:0 0 16px; font-size:13px; color:#6b7280; }
+  .login-field{ margin-bottom:12px; }
+  .login-label{ display:block; font-size:12px; color:#6b7280; margin:0 0 6px; }
+  .login-input{
+    width:100%; padding:12px; border-radius:12px; border:1px solid #d1d5db; background:#fff; color:#111827;
+    font-size:15px;
+  }
+  .login-row{ display:flex; gap:10px; align-items:center; }
+  .login-btn{
+    width:100%; padding:12px; border-radius:12px; border:1px solid #cbd5e1; background:#111827; color:#fff;
+    font-weight:800; cursor:pointer; font-size:16px;
+  }
+  .login-btn:active{ transform:scale(.98); }
+  .login-error{ margin-top:10px; font-size:13px; color:#b91c1c; min-height:18px; }
+  .login-footer{ margin-top:8px; font-size:12px; color:#6b7280; text-align:center; }
+  .pw-wrap{ position:relative; }
+  .pw-toggle{
+    position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    background:transparent; border:0; cursor:pointer; color:#6b7280; font-size:12px;
+  }
+</style>
+
+<div id="loginOverlay" class="login-overlay" aria-modal="true" role="dialog">
+  <div class="login-card">
+    <h3 class="login-title">Acceso al marcador</h3>
+    <p class="login-sub">Introduce tus credenciales de Firebase (email y contraseña).</p>
+
+    <form id="loginForm">
+      <div class="login-field">
+        <label class="login-label" for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" class="login-input" placeholder="panel@tu-dominio.com" autocomplete="username" required />
+      </div>
+
+      <div class="login-field pw-wrap">
+        <label class="login-label" for="loginPassword">Contraseña</label>
+        <input id="loginPassword" type="password" class="login-input" placeholder="••••••••" autocomplete="current-password" required />
+        <button type="button" class="pw-toggle" id="pwToggle">mostrar</button>
+      </div>
+
+      <div class="login-row" style="margin-top:6px">
+        <button class="login-btn" id="loginSubmit" type="submit">Entrar</button>
+      </div>
+      <div id="loginError" class="login-error"></div>
+      <div class="login-footer">Tus dominios deben estar autorizados en Firebase Auth.</div>
+    </form>
+  </div>
+</div>
 
 </body>
 </html>
