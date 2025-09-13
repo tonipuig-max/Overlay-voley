@@ -35,7 +35,7 @@
 <script type="module">
 /***** Parámetros URL *****/
 const p = new URLSearchParams(location.search);
-const MATCH_ID   = p.get('matchId') || 'test123';
+const MATCH_ID   = p.get('matchId') || 'Ariadna2';
 let   urlSet     = p.get('set');                 // si está, fuerza set
 let   currentSet = urlSet ? Number(urlSet) : 0;  // 0 => seguir Firebase
 const SWAP_SIDES = (p.get('swapSides')==='1');

@@ -86,7 +86,7 @@
 <script>
 (function(){
   const qs = new URLSearchParams(location.search);
-  const MATCH_ID = qs.get('matchId') || 'test123';
+  const MATCH_ID = qs.get('matchId') || 'Ariadna2';
   const DEBUG = qs.get('debug') === '1';
   const SCALE = parseFloat(qs.get('scale')||'1');
   document.getElementById('bar').style.transform = `scale(${isFinite(SCALE)?SCALE:1})`;
